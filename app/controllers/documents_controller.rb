@@ -16,6 +16,8 @@ class DocumentsController < ApplicationController
   before_action :set_document, only: %i[show edit update export destroy]
 
   def index
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
     @documents = Document.order(created_at: :desc).limit(50)
     by_title = @documents.group_by { |d| d.metadata_filename.presence || "Untitled ##{d.id}" }
     @doc_disambiguator = {}
@@ -206,7 +208,11 @@ class DocumentsController < ApplicationController
     if Document.count.zero?
       ActiveRecord::Base.connection.execute("ALTER SEQUENCE documents_id_seq RESTART WITH 1")
     end
-    redirect_to root_path, notice: "Document deleted."
+    if request.xhr? || request.format.json?
+      head :no_content
+    else
+      redirect_to root_path
+    end
   end
 
   private

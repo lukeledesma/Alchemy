@@ -13,8 +13,13 @@ export default class extends Controller {
     this.element.addEventListener("keydown", this.boundKeydown, true)
     if (this.hasAddBtnTarget) this.addBtnTarget.addEventListener("click", this.addRow.bind(this))
     if (this.hasTbodyTarget) {
+      this._hoverRow = null
       this.boundTbodyClick = this.handleTbodyClick.bind(this)
+      this.boundTbodyMouseMove = this.handleTbodyMouseMove.bind(this)
+      this.boundTbodyMouseLeave = this.handleTbodyMouseLeave.bind(this)
       this.tbodyTarget.addEventListener("click", this.boundTbodyClick, true)
+      this.tbodyTarget.addEventListener("mousemove", this.boundTbodyMouseMove)
+      this.tbodyTarget.addEventListener("mouseleave", this.boundTbodyMouseLeave)
       this.tbodyTarget.addEventListener("dragstart", this.handleDragStart.bind(this))
       this.tbodyTarget.addEventListener("dragover", this.handleDragOver.bind(this))
       this.tbodyTarget.addEventListener("drop", this.handleDrop.bind(this))
@@ -22,6 +27,11 @@ export default class extends Controller {
     }
     this.boundGlobalKeydown = this.handleGlobalKeydown.bind(this)
     document.addEventListener("keydown", this.boundGlobalKeydown, true)
+    if (this.hasStatusMessageTarget) {
+      this._statusHighlightedRows = null
+      this.boundStatusClick = this.handleStatusClick.bind(this)
+      this.statusMessageTarget.addEventListener("click", this.boundStatusClick)
+    }
     this.element.addEventListener("input", this.boundFormChange)
     this.element.addEventListener("change", this.boundFormChange)
     this.boundValidateTable = this.validateTable.bind(this)
@@ -41,12 +51,17 @@ export default class extends Controller {
     if (this.hasAddBtnTarget) this.addBtnTarget.removeEventListener("click", this.addRow.bind(this))
     if (this.hasTbodyTarget) {
       this.tbodyTarget.removeEventListener("click", this.boundTbodyClick, true)
+      this.tbodyTarget.removeEventListener("mousemove", this.boundTbodyMouseMove)
+      this.tbodyTarget.removeEventListener("mouseleave", this.boundTbodyMouseLeave)
       this.tbodyTarget.removeEventListener("dragstart", this.handleDragStart.bind(this))
       this.tbodyTarget.removeEventListener("dragover", this.handleDragOver.bind(this))
       this.tbodyTarget.removeEventListener("drop", this.handleDrop.bind(this))
       this.tbodyTarget.removeEventListener("dragend", this.handleDragEnd.bind(this))
     }
     document.removeEventListener("keydown", this.boundGlobalKeydown, true)
+    if (this.hasStatusMessageTarget) {
+      this.statusMessageTarget.removeEventListener("click", this.boundStatusClick)
+    }
     this.element.removeEventListener("input", this.boundFormChange)
     this.element.removeEventListener("change", this.boundFormChange)
     this.element.removeEventListener("input", this.boundValidateTable)
@@ -112,7 +127,13 @@ export default class extends Controller {
     if (e.target.classList.contains("cell") || e.target.classList.contains("workspace-title-input") || e.target.classList.contains("connection-inline")) {
       if (e.target.classList.contains("cell") && e.target.name) {
         const m = e.target.name.match(/records\[\d+\]\[([^\]]+)\]/)
-        if (m) this.setStatus(m[1] + " updated")
+        if (m) {
+          const row = e.target.closest("tr.tag-data-row")
+          this.setStatus(m[1] + " updated", row && !row.classList.contains("tag-row-template") ? [row] : null)
+        }
+        if (e.type === "change") {
+          if (e.target.tagName === "SELECT") e.target.blur()
+        }
       } else if (e.target.classList.contains("workspace-title-input")) {
         e.target.classList.remove("cell-invalid")
         this.setStatus("Document name updated")
@@ -122,9 +143,36 @@ export default class extends Controller {
     }
   }
 
-  setStatus(message) {
+  setStatus(message, rows = null) {
     if (!this.hasStatusMessageTarget) return
     this.statusMessageTarget.textContent = message
+    this._lastStatusRows = rows && rows.length ? Array.from(rows) : null
+    if (this._statusHighlightedRows != null && this._lastStatusRows?.length) {
+      this.clearStatusHighlight()
+      this._statusHighlightedRows = this._lastStatusRows.filter(r => r && r.isConnected)
+      this._statusHighlightedRows.forEach(r => r.classList.add("row-status-highlight"))
+    }
+  }
+
+  clearStatusHighlight() {
+    if (!this._statusHighlightedRows) return
+    this._statusHighlightedRows.forEach(r => { if (r && r.isConnected) r.classList.remove("row-status-highlight") })
+    this._statusHighlightedRows = null
+  }
+
+  handleStatusClick(e) {
+    if (e.button !== 0) return
+    if (!this._lastStatusRows?.length) return
+    const lastSet = new Set(this._lastStatusRows.filter(r => r && r.isConnected))
+    const highlightedSet = this._statusHighlightedRows ? new Set(this._statusHighlightedRows) : new Set()
+    const same = lastSet.size === highlightedSet.size && [...lastSet].every(r => highlightedSet.has(r))
+    if (same) {
+      this.clearStatusHighlight()
+      return
+    }
+    this.clearStatusHighlight()
+    this._statusHighlightedRows = this._lastStatusRows.filter(r => r && r.isConnected)
+    this._statusHighlightedRows.forEach(r => r.classList.add("row-status-highlight"))
   }
 
   requireTitleBeforeHome(e) {
@@ -320,7 +368,7 @@ export default class extends Controller {
     this.reindexRows()
     newRows.forEach(tr => tr.classList.add("row-selected"))
     if (newRows.length) newRows[0].scrollIntoView({ block: "nearest", behavior: "smooth" })
-    this.setStatus(newRows.length === 1 ? "1 row duplicated" : `${newRows.length} rows duplicated`)
+    this.setStatus(newRows.length === 1 ? "1 row duplicated" : `${newRows.length} rows duplicated`, newRows)
     this.updateStatusCount()
     this.validateTable()
     this.saveForm()
@@ -354,11 +402,11 @@ export default class extends Controller {
     this.reindexRows()
     newRows.forEach(tr => tr.classList.add("row-selected"))
     if (newRows.length) newRows[0].scrollIntoView({ block: "nearest", behavior: "smooth" })
-    this.setStatus(newRows.length === 1 ? "1 row pasted" : `${newRows.length} rows pasted`)
+    this.setStatus(newRows.length === 1 ? "1 row pasted" : `${newRows.length} rows pasted`, newRows)
     this.updateStatusCount()
     this.validateTable()
     this.saveForm()
-  }
+    }
 
   getRowValues(tr) {
     const cells = tr.querySelectorAll("td input.cell, td select.cell")
@@ -375,8 +423,8 @@ export default class extends Controller {
   addRow(e) {
     if (e) e.preventDefault()
     if (!this.hasTemplateRowTarget) return
-    this.addRowWithValues(null)
-    this.setStatus("1 row added")
+    const newRow = this.addRowWithValues(null)
+    this.setStatus("1 row added", newRow ? [newRow] : null)
     this.updateStatusCount()
     this.validateTable()
     this.saveForm()
@@ -417,6 +465,27 @@ export default class extends Controller {
     })
   }
 
+  handleTbodyMouseMove(e) {
+    const row = e.target.closest("tr.tag-data-row")
+    const dataRow = row && !row.classList.contains("tag-row-template") ? row : null
+    if (dataRow === this._hoverRow) return
+    if (this._hoverRow) {
+      this._hoverRow.classList.remove("row-hover")
+      this._hoverRow = null
+    }
+    if (dataRow) {
+      dataRow.classList.add("row-hover")
+      this._hoverRow = dataRow
+    }
+  }
+
+  handleTbodyMouseLeave() {
+    if (this._hoverRow) {
+      this._hoverRow.classList.remove("row-hover")
+      this._hoverRow = null
+    }
+  }
+
   handleDragStart(e) {
     if (this.element.classList.contains("workspace-locked")) return
     if (!this.element.classList.contains("workspace-reorder-mode")) return
@@ -426,8 +495,10 @@ export default class extends Controller {
     const selected = this.getSelectedRows()
     if (selected.length && selected.includes(row)) {
       this.movingRows = selected.slice() // order top to bottom
+      this.draggedRowWasUnselected = false
     } else {
       this.movingRows = [row]
+      this.draggedRowWasUnselected = true
     }
     e.dataTransfer.effectAllowed = "move"
     e.dataTransfer.setData("text/plain", "")
@@ -480,11 +551,15 @@ export default class extends Controller {
     moving.forEach(r => tbody.insertBefore(r, ref))
     this.reindexRows()
     this.dataRows.forEach(r => r.classList.remove("drop-before", "drop-after"))
-    this.setStatus(moving.length === 1 ? "1 row moved" : `${moving.length} rows moved`)
+    if (moving.length === 1 && this.draggedRowWasUnselected) {
+      this.dataRows.forEach(r => r.classList.remove("row-selected"))
+      moving[0].classList.add("row-selected")
+    }
+    this.setStatus(moving.length === 1 ? "1 row moved" : `${moving.length} rows moved`, moving)
     this.clearSortIndicator()
     this.validateTable()
     this.saveForm()
-  }
+    }
 
   clearSortIndicator() {
     const table = this.tbodyTarget && this.tbodyTarget.closest("table")
@@ -504,8 +579,10 @@ export default class extends Controller {
   }
 
   handleDragEnd(e) {
-    this.dataRows.forEach(r => r.classList.remove("drag-source", "drop-before", "drop-after"))
+    this.dataRows.forEach(r => r.classList.remove("drag-source", "drop-before", "drop-after", "row-hover"))
     this.draggedRow = null
     this.movingRows = null
+    this.draggedRowWasUnselected = null
+    this._hoverRow = null
   }
 }
