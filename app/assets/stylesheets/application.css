@@ -96,6 +96,15 @@ a:hover { text-decoration: underline; }
 .home-actions .file-input-hidden { position: absolute; width: 0.1px; height: 0.1px; opacity: 0; overflow: hidden; z-index: -1; }
 .home-import-form { display: inline-block; }
 .recent-docs { text-align: left; }
+.recent-docs__content.recent-docs__content--fade-out { animation: recent-docs-fade-out 0.3s ease-out forwards; }
+@keyframes recent-docs-fade-out {
+  to { opacity: 0; }
+}
+.empty-state--fade-in { animation: empty-state-fade-in 0.35s ease-out; }
+@keyframes empty-state-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
 .recent-docs h2 { font-size: 1rem; font-weight: 600; margin: 0 0 0.75rem 0; color: var(--muted); }
 .recent-docs ul { list-style: none; padding: 0; margin: 0; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); overflow: hidden; }
 .recent-docs li { border-bottom: 1px solid var(--border); }
@@ -105,6 +114,13 @@ a:hover { text-decoration: underline; }
 .recent-docs li.doc-row--zero-tags .doc-link,
 .recent-docs li.doc-row--zero-tags .doc-link:hover { color: var(--danger, #c53030); }
 .recent-docs li.doc-row--zero-tags .doc-count { color: var(--danger, #c53030); }
+.recent-docs li.doc-row--deleting { overflow: hidden; animation: doc-row-delete-poof 0.6s ease-out forwards; pointer-events: none; }
+.recent-docs li.doc-row--deleting .doc-link { pointer-events: none; }
+@keyframes doc-row-delete-poof {
+  0% { background: rgba(185, 28, 28, 0.5); opacity: 1; max-height: 6rem; }
+  40% { background: rgba(185, 28, 28, 0.4); opacity: 1; max-height: 6rem; }
+  100% { background: transparent; opacity: 0; max-height: 0; border-bottom-width: 0; padding-top: 0; padding-bottom: 0; }
+}
 .doc-link { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; color: var(--text); }
 .doc-link:hover { background: var(--surface-raised); text-decoration: none; color: var(--text); }
 .doc-title-block { display: inline-flex; align-items: baseline; gap: 0.2rem; }
@@ -270,6 +286,10 @@ input.connection-inline {
   margin: var(--space-sm) 0 0 0;
   padding-top: var(--space-sm);
   border-top: 1px solid var(--border);
+  user-select: text;
+}
+.workspace-header .loaded-status [data-tag-table-target="statusMessage"] {
+  cursor: pointer;
 }
 .workspace-header .loaded-status-count {
   margin-left: auto;
@@ -285,17 +305,21 @@ input.connection-inline {
 .tag-table th, .tag-table td { padding: 0.4rem 0.6rem; border: 1px solid var(--border); text-align: left; vertical-align: middle; }
 .tag-table th { background: var(--surface-raised); font-weight: 600; color: var(--text-muted); white-space: nowrap; }
 .tag-table tbody tr.drag-source { opacity: 0.5; }
-.tag-table tbody tr.drop-before { box-shadow: inset 0 2px 0 0 var(--accent); }
-.tag-table tbody tr.drop-after { box-shadow: inset 0 -2px 0 0 var(--accent); }
+/* Use border on cells so drop line is visible on Safari/macOS (inset box-shadow on tr often doesn't paint) */
+.tag-table tbody tr.drop-before td { border-top: 3px solid var(--accent); }
+.tag-table tbody tr.drop-after td { border-bottom: 3px solid var(--accent); }
 .tag-table th:nth-child(8), .tag-table td:nth-child(8) { min-width: 7.5rem; }
 .tag-table th a { color: var(--text-muted); display: inline-flex; align-items: center; gap: 0.35rem; }
 .tag-table th a:hover { color: var(--accent); text-decoration: none; }
 .workspace-locked .tag-table th a { pointer-events: none; cursor: default; opacity: 0.8; }
 .tag-table th.sort-asc a::after { content: " ↑"; color: var(--accent); font-weight: 700; }
 .tag-table tbody tr:nth-child(even) { background: rgba(255,255,255,0.02); }
-.tag-table tbody tr:hover { background: rgba(255,255,255,0.05); }
+/* Row hover is JS-controlled (one row at a time) to avoid ghost highlights after drag on macOS */
+.tag-table tbody tr.row-hover { background: rgba(255,255,255,0.05); }
 .tag-table tbody tr.row-selected { background: rgba(59, 130, 246, 0.15) !important; }
-.tag-table tbody tr.row-selected:hover { background: rgba(59, 130, 246, 0.2) !important; }
+.tag-table tbody tr.row-selected.row-hover { background: rgba(59, 130, 246, 0.2) !important; }
+.tag-table tbody tr.row-status-highlight { background: rgba(34, 197, 94, 0.25) !important; }
+.tag-table tbody tr.row-status-highlight.row-hover { background: rgba(34, 197, 94, 0.35) !important; }
 .tag-table tbody tr.tag-row-template { display: none !important; }
 .tag-table .cell { width: 100%; min-width: 3rem; padding: 0.3rem 0.5rem; border: 1px solid transparent; border-radius: 4px; font: inherit; font-size: 0.875rem; background: transparent; color: var(--text); }
 .tag-table .cell:focus { outline: none; border-color: var(--accent); background: var(--surface-raised); }

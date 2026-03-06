@@ -21,23 +21,35 @@ export default class extends Controller {
     e.preventDefault()
     const message = "Delete this document? This cannot be undone."
     if (!window.confirm(message)) return
-    const form = document.createElement("form")
-    form.method = "post"
-    form.action = url
-    const method = document.createElement("input")
-    method.type = "hidden"
-    method.name = "_method"
-    method.value = "delete"
-    form.appendChild(method)
     const csrf = document.querySelector("meta[name='csrf-token']")
-    if (csrf) {
-      const token = document.createElement("input")
-      token.type = "hidden"
-      token.name = "authenticity_token"
-      token.value = csrf.content
-      form.appendChild(token)
-    }
-    document.body.appendChild(form)
-    form.submit()
+    const headers = { "X-CSRF-Token": csrf?.content || "", "Accept": "application/json", "X-Requested-With": "XMLHttpRequest" }
+    fetch(url, { method: "DELETE", headers, credentials: "same-origin" }).then((res) => {
+      if (res.ok) {
+        row.classList.add("doc-row--deleting")
+        const onDone = () => {
+          row.removeEventListener("animationend", onDone)
+          row.remove()
+          if (this.element.querySelectorAll("[data-recent-docs-target='doc']").length === 0) {
+            const wrapper = document.createElement("div")
+            wrapper.className = "recent-docs__content"
+            while (this.element.firstChild) wrapper.appendChild(this.element.firstChild)
+            this.element.appendChild(wrapper)
+            wrapper.classList.add("recent-docs__content--fade-out")
+            const showEmpty = () => {
+              wrapper.removeEventListener("animationend", showEmpty)
+              const parent = this.element.parentNode
+              const p = document.createElement("p")
+              p.className = "empty-state empty-state--fade-in"
+              p.innerHTML = "No documents yet. Use <strong>Import</strong> or <strong>New</strong> to get started."
+              parent.replaceChild(p, this.element)
+            }
+            wrapper.addEventListener("animationend", showEmpty, { once: true })
+          }
+        }
+        row.addEventListener("animationend", onDone, { once: true })
+      } else {
+        window.location.reload()
+      }
+    }).catch(() => window.location.reload())
   }
 }
