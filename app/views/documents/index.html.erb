@@ -16,8 +16,23 @@
     <section class="recent-docs" data-controller="recent-docs">
       <h2>Files</h2>
       <ul>
+        <% ghost_insert_index = flash[:replaced_untitled_old_index].to_i + 1 if flash[:replaced_untitled_old_index].present? %>
+        <% ghost_inserted = false %>
         <% @documents.each_with_index do |doc, idx| %>
-          <li class="doc-row<%= ' doc-row--zero-tags' if doc.records.size.zero? %><%= ' doc-row--just-imported' if idx == 0 && flash[:just_imported] %>" tabindex="0" data-recent-docs-target="doc" data-delete-url="<%= document_path(doc) %>">
+          <% delayed_top_insert = idx == 0 && flash[:just_imported] && flash[:replaced_untitled_old_index].present? %>
+          <% if ghost_insert_index && !ghost_inserted && idx == ghost_insert_index %>
+            <li class="doc-row doc-row--zero-tags doc-row--replaced-ghost" aria-hidden="true">
+              <div class="doc-link">
+                <span class="doc-title-block">
+                  <span class="doc-name">Untitled</span>
+                </span>
+                <span class="doc-count">0 tag(s)</span>
+              </div>
+            </li>
+            <% ghost_inserted = true %>
+          <% end %>
+          <% top_existing_reused = idx == 0 && flash[:reused_existing_was_top] && flash[:reused_existing_doc_id].to_i == doc.id %>
+          <li class="doc-row<%= ' doc-row--zero-tags' if doc.records.size.zero? %><%= ' doc-row--just-imported' if idx == 0 && flash[:just_imported] %><%= ' doc-row--just-imported-delayed' if delayed_top_insert %><%= ' doc-row--existing-top-flash' if top_existing_reused %>" tabindex="0" data-recent-docs-target="doc" data-delete-url="<%= document_path(doc) %>">
             <%= link_to document_path(doc), class: "doc-link" do %>
               <span class="doc-title-block">
                 <% untitled = doc.metadata_filename.blank? || doc.metadata_filename == "Untitled ##{doc.id}" %>
@@ -29,6 +44,16 @@
               </span>
               <span class="doc-count"><%= doc.records.size %> tag(s)</span>
             <% end %>
+          </li>
+        <% end %>
+        <% if ghost_insert_index && !ghost_inserted %>
+          <li class="doc-row doc-row--zero-tags doc-row--replaced-ghost" aria-hidden="true">
+            <div class="doc-link">
+              <span class="doc-title-block">
+                <span class="doc-name">Untitled</span>
+              </span>
+              <span class="doc-count">0 tag(s)</span>
+            </div>
           </li>
         <% end %>
       </ul>

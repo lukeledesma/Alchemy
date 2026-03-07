@@ -6,6 +6,7 @@ export default class extends Controller {
   connect() {
     this.boundKeydown = this.handleKeydown.bind(this)
     this.element.addEventListener("keydown", this.boundKeydown, true)
+    this.renumberDisambiguators()
   }
 
   disconnect() {
@@ -25,33 +26,82 @@ export default class extends Controller {
     const headers = { "X-CSRF-Token": csrf?.content || "", "Accept": "application/json", "X-Requested-With": "XMLHttpRequest" }
     fetch(url, { method: "DELETE", headers, credentials: "same-origin" }).then((res) => {
       if (res.ok) {
-        row.classList.remove("doc-row--just-imported")
-        row.classList.add("doc-row--deleting")
-        const onDone = (e) => {
-          if (e.animationName !== "doc-row-delete-poof") return
-          row.removeEventListener("animationend", onDone)
-          row.remove()
-          if (this.element.querySelectorAll("[data-recent-docs-target='doc']").length === 0) {
-            const wrapper = document.createElement("div")
-            wrapper.className = "recent-docs__content"
-            while (this.element.firstChild) wrapper.appendChild(this.element.firstChild)
-            this.element.appendChild(wrapper)
-            wrapper.classList.add("recent-docs__content--fade-out")
-            const showEmpty = () => {
-              wrapper.removeEventListener("animationend", showEmpty)
-              const parent = this.element.parentNode
-              const p = document.createElement("p")
-              p.className = "empty-state empty-state--fade-in"
-              p.innerHTML = "No documents yet. Use <strong>Import</strong> or <strong>New</strong> to get started."
-              parent.replaceChild(p, this.element)
-            }
-            wrapper.addEventListener("animationend", showEmpty, { once: true })
-          }
-        }
-        row.addEventListener("animationend", onDone, { once: true })
+        this.startDeleteAnimation(row)
       } else {
         window.location.reload()
       }
     }).catch(() => window.location.reload())
+  }
+
+  startDeleteAnimation(row) {
+    const finalizeRemoval = () => {
+      if (!row.isConnected) return
+      row.remove()
+      this.renumberDisambiguators()
+      if (this.element.querySelectorAll("[data-recent-docs-target='doc']").length === 0) {
+        const wrapper = document.createElement("div")
+        wrapper.className = "recent-docs__content"
+        while (this.element.firstChild) wrapper.appendChild(this.element.firstChild)
+        this.element.appendChild(wrapper)
+        wrapper.classList.add("recent-docs__content--fade-out")
+        const showEmpty = () => {
+          wrapper.removeEventListener("animationend", showEmpty)
+          const parent = this.element.parentNode
+          const p = document.createElement("p")
+          p.className = "empty-state empty-state--fade-in"
+          p.innerHTML = "No documents yet. Use <strong>Import</strong> or <strong>New</strong> to get started."
+          parent.replaceChild(p, this.element)
+        }
+        wrapper.addEventListener("animationend", showEmpty, { once: true })
+      }
+    }
+
+    row.classList.remove("doc-row--just-imported", "doc-row--just-imported-delayed", "doc-row--existing-top-flash")
+    row.classList.remove("doc-row--deleting")
+    // Restart animation reliably in edge cases where class was already applied.
+    void row.offsetWidth
+    row.classList.add("doc-row--deleting")
+
+    const timeoutId = setTimeout(finalizeRemoval, 900)
+    const onDone = (e) => {
+      if (e.animationName !== "doc-row-delete-poof") return
+      clearTimeout(timeoutId)
+      row.removeEventListener("animationend", onDone)
+      finalizeRemoval()
+    }
+    row.addEventListener("animationend", onDone, { once: true })
+  }
+
+  renumberDisambiguators() {
+    const rows = Array.from(this.element.querySelectorAll("[data-recent-docs-target='doc']"))
+    const groups = new Map()
+    rows.forEach((row) => {
+      const nameEl = row.querySelector(".doc-name")
+      if (!nameEl) return
+      const title = (nameEl.textContent || "").trim()
+      if (!title || title === "Untitled") return
+      if (!groups.has(title)) groups.set(title, [])
+      groups.get(title).push(row)
+    })
+
+    groups.forEach((groupRows) => {
+      const total = groupRows.length
+      groupRows.forEach((row, idx) => {
+        const block = row.querySelector(".doc-title-block")
+        if (!block) return
+        let tag = row.querySelector(".doc-disambiguator")
+        if (total <= 1) {
+          if (tag) tag.remove()
+          return
+        }
+        const label = ` #${total - idx}`
+        if (!tag) {
+          tag = document.createElement("span")
+          tag.className = "doc-disambiguator"
+          block.appendChild(tag)
+        }
+        tag.textContent = label
+      })
+    })
   }
 }

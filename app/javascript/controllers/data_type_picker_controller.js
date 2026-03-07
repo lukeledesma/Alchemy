@@ -3,9 +3,12 @@ import { Controller } from "@hotwired/stimulus"
 export default class extends Controller {
   static targets = ["trigger", "popup", "datatypeSelect", "encodeSelect", "typeSelect"]
 
+  // Lifecycle and initial option mapping.
   connect() {
     this.boundClose = this.close.bind(this)
+    this.boundFocusInClose = this.handleFocusInClose.bind(this)
     this.boundKeydown = this.handleKeydown.bind(this)
+    this.boundViewportUpdate = this.updatePopupPosition.bind(this)
     const el = document.getElementById("data-type-picker-type-options")
     try {
       this.typeOptions = el && el.textContent ? JSON.parse(el.textContent) : []
@@ -15,7 +18,7 @@ export default class extends Controller {
     this.reverseMap = {}
     this.typeOptions.forEach((opt) => {
       const key = `${this.normalizeCode(opt.datatype)}_${this.normalizeCode(opt.encode)}`
-      this.reverseMap[key] = opt.label
+      if (!this.reverseMap[key]) this.reverseMap[key] = opt.label
     })
   }
 
@@ -29,6 +32,7 @@ export default class extends Controller {
     this.close()
   }
 
+  // Popup open/close behavior and outside-dismiss.
   open(e) {
     const trigger = e.currentTarget
     if (trigger.disabled) return
@@ -44,20 +48,22 @@ export default class extends Controller {
     this.popupTarget.classList.remove("hidden")
     this.popupTarget.setAttribute("aria-hidden", "false")
     this.positionPopup(trigger)
-    this.datatypeSelectTarget.value = dt
-    this.encodeSelectTarget.value = enc
+    this.setSelectByNormalizedCode(this.datatypeSelectTarget, dt)
+    this.setSelectByNormalizedCode(this.encodeSelectTarget, enc)
     const key = `${dt}_${enc}`
     const label = this.reverseMap[key] || "Unique"
     this.typeSelectTarget.value = label
     this.updateUniqueHighlight()
+    this.bindViewportTracking()
     document.addEventListener("click", this.boundClose, true)
+    document.addEventListener("focusin", this.boundFocusInClose, true)
     document.addEventListener("keydown", this.boundKeydown)
   }
 
   close(e) {
     if (e && e.type === "click") {
       if (this.popupTarget.contains(e.target)) return
-      if (this.triggerTargets.some((t) => t.contains(e.target))) return
+      if (this.currentTrigger && this.currentTrigger.contains(e.target)) return
     }
     if (this.currentTrigger) {
       this.currentTrigger.blur()
@@ -65,8 +71,42 @@ export default class extends Controller {
     this.currentTrigger = null
     this.popupTarget.classList.add("hidden")
     this.popupTarget.setAttribute("aria-hidden", "true")
+    this.unbindViewportTracking()
     document.removeEventListener("click", this.boundClose, true)
+    document.removeEventListener("focusin", this.boundFocusInClose, true)
     document.removeEventListener("keydown", this.boundKeydown)
+  }
+
+  // Keep popup anchored while viewport/zoom/scroll changes.
+  bindViewportTracking() {
+    window.addEventListener("resize", this.boundViewportUpdate)
+    document.addEventListener("scroll", this.boundViewportUpdate, true)
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", this.boundViewportUpdate)
+      window.visualViewport.addEventListener("scroll", this.boundViewportUpdate)
+    }
+  }
+
+  unbindViewportTracking() {
+    window.removeEventListener("resize", this.boundViewportUpdate)
+    document.removeEventListener("scroll", this.boundViewportUpdate, true)
+    if (window.visualViewport) {
+      window.visualViewport.removeEventListener("resize", this.boundViewportUpdate)
+      window.visualViewport.removeEventListener("scroll", this.boundViewportUpdate)
+    }
+  }
+
+  updatePopupPosition() {
+    if (!this.currentTrigger || this.popupTarget.classList.contains("hidden")) return
+    this.positionPopup(this.currentTrigger)
+  }
+
+  // Keyboard interactions.
+  handleFocusInClose(e) {
+    if (this.popupTarget.classList.contains("hidden")) return
+    if (this.popupTarget.contains(e.target)) return
+    if (this.currentTrigger && this.currentTrigger.contains(e.target)) return
+    this.close()
   }
 
   handleKeydown(e) {
@@ -74,13 +114,14 @@ export default class extends Controller {
       if (e.key === "Escape") {
         e.preventDefault()
         this.close()
-      } else if (e.key === "Enter" && this.popupTarget.contains(document.activeElement)) {
+      } else if (e.key === "Enter") {
         e.preventDefault()
         this.commitAndClose()
       }
     }
   }
 
+  // Commit and positioning.
   commitAndClose() {
     const dt = this.datatypeSelectTarget.value
     const enc = this.encodeSelectTarget.value
@@ -90,33 +131,65 @@ export default class extends Controller {
   }
 
   positionPopup(trigger) {
-    const rect = trigger.getBoundingClientRect()
+    const td = trigger.closest("td")
+    const rect = (td || trigger).getBoundingClientRect()
     const popup = this.popupTarget
+    // Align popup outer edges to the table cell border lines.
+    const borderAlign = 1
     popup.style.position = "fixed"
-    popup.style.top = `${rect.bottom + 4}px`
-    popup.style.left = `${rect.left}px`
+    popup.style.top = `${Math.round(rect.bottom - borderAlign)}px`
+    popup.style.left = `${Math.round(rect.left - borderAlign)}px`
     popup.style.transform = "none"
   }
 
-  fromType() {
+  // Dropdown synchronization helpers.
+  fromType(e) {
     const label = this.typeSelectTarget.value
     if (label === "Unique") return
     const opt = this.typeOptions.find((o) => o.label === label)
     if (!opt) return
     const dt = this.normalizeCode(opt.datatype)
     const enc = this.normalizeCode(opt.encode)
-    this.datatypeSelectTarget.value = dt
-    this.encodeSelectTarget.value = enc
+    this.setSelectByNormalizedCode(this.datatypeSelectTarget, dt)
+    this.setSelectByNormalizedCode(this.encodeSelectTarget, enc)
     this.updateUniqueHighlight()
+    this.blurPopupSelect(e)
   }
 
-  fromCodes() {
-    const dt = this.datatypeSelectTarget.value
-    const enc = this.encodeSelectTarget.value
+  fromCodes(e) {
+    const dt = this.normalizeCode(this.datatypeSelectTarget.value)
+    const enc = this.normalizeCode(this.encodeSelectTarget.value)
     const key = `${dt}_${enc}`
     const label = this.reverseMap[key] || "Unique"
     this.typeSelectTarget.value = label
     this.updateUniqueHighlight()
+    this.blurPopupSelect(e)
+  }
+
+  blurPopupSelect(e) {
+    const target = e && e.target
+    if (!target || target.tagName !== "SELECT") return
+    requestAnimationFrame(() => target.blur())
+  }
+
+  setSelectByNormalizedCode(selectEl, code) {
+    const normalized = this.normalizeCode(code)
+    const option = Array.from(selectEl.options).find((opt) => this.normalizeCode(opt.value) === normalized)
+    selectEl.value = option ? option.value : normalized
+  }
+
+  // UI rendering helpers.
+  buildTooltip(datatypeLabel, encodeLabel) {
+    const dt = (datatypeLabel || "").trim() || "Unknown"
+    const enc = (encodeLabel || "").trim() || "Unknown"
+    return `Data Type: ${dt}\nEncode: ${enc}`
+  }
+
+  codeLabelFromSelect(selectEl, code) {
+    const normalized = this.normalizeCode(code)
+    const option = Array.from(selectEl.options).find((opt) => this.normalizeCode(opt.value) === normalized)
+    if (option) return option.textContent.trim()
+    return `Code ${normalized}`
   }
 
   updateUniqueHighlight() {
@@ -128,6 +201,7 @@ export default class extends Controller {
     }
   }
 
+  // Row write + status event dispatch.
   writeToRow(datatype, encode, label) {
     if (!this.currentTrigger) return
     const td = this.currentTrigger.closest("td")
@@ -135,6 +209,7 @@ export default class extends Controller {
     const hiddenValue = td.querySelector("input.cell[name*='Data Type']")
     const hiddenRawDt = td.querySelector("input[name*='_raw_datatype']")
     const hiddenRawEnc = td.querySelector("input[name*='_raw_encode']")
+    const beforeLabel = this.currentTrigger.dataset.value || hiddenValue?.value || ""
     if (hiddenValue) hiddenValue.value = label
     if (hiddenRawDt) hiddenRawDt.value = datatype
     if (hiddenRawEnc) hiddenRawEnc.value = encode
@@ -145,13 +220,28 @@ export default class extends Controller {
     if (label === "Unique") this.currentTrigger.classList.add("data-type-unique")
     else this.currentTrigger.classList.remove("data-type-unique")
     const opt = this.typeOptions.find((o) => o.label === label)
-    const dtLabel = opt ? opt.datatype_label : ""
-    const encLabel = opt ? opt.encode_label : ""
-    this.currentTrigger.title = [dtLabel, encLabel].filter(Boolean).join(" / ") || "Data type"
+    const dtLabel = opt ? opt.datatype_label : this.codeLabelFromSelect(this.datatypeSelectTarget, datatype)
+    const encLabel = opt ? opt.encode_label : this.codeLabelFromSelect(this.encodeSelectTarget, encode)
+    this.currentTrigger.title = this.buildTooltip(dtLabel, encLabel)
     const form = this.element.closest("form")
     const row = this.currentTrigger.closest("tr.tag-data-row")
+    const rowIndexMatch = hiddenValue && hiddenValue.name ? hiddenValue.name.match(/records\[(\d+)\]/) : null
+    const rowIndex = rowIndexMatch ? rowIndexMatch[1] : null
+    const delta = rowIndex == null ? null : {
+      kind: "record_fields",
+      rowIndex,
+      fields: {
+        "Data Type": label,
+        _raw_datatype: datatype,
+        _raw_encode: encode
+      }
+    }
+    const status = {
+      simple: "Data Type updated",
+      detailed: `Data Type ${beforeLabel || "(blank)"} > Data Type ${label || "(blank)"}`
+    }
     if (form && form.dataset.controller && form.dataset.controller.includes("tag-table")) {
-      form.dispatchEvent(new CustomEvent("tag-table:cell-changed", { bubbles: true, detail: { message: "Data Type updated", row } }))
+      form.dispatchEvent(new CustomEvent("tag-table:cell-changed", { bubbles: true, detail: { message: "Data Type updated", status, row, delta } }))
     }
   }
 }

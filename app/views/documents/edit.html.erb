@@ -21,7 +21,7 @@
 <script type="application/json" id="data-type-picker-type-options"><%= raw data_type_popup_options.to_json %></script>
 
 <div class="workspace">
-  <%= form_with model: @document, url: document_path(@document), method: :patch, class: "workspace-form", data: { controller: "autosave workspace-lock tag-table data-type-picker", workspace_lock_initial_unlocked_value: flash[:new_document].present? } do |f| %>
+  <%= form_with model: @document, url: document_path(@document), method: :patch, class: "workspace-form", data: { controller: "workspace-lock tag-table data-type-picker", workspace_lock_initial_unlocked_value: flash[:new_document].present? } do |f| %>
     <header class="workspace-header">
       <div class="header-top">
         <div class="header-title-block">
@@ -79,11 +79,15 @@
                 <td>
                   <% case type %>
                   <% when :data_type %>
-                    <% raw_dt = row["_raw_datatype"].to_s.strip; raw_enc = row["_raw_encode"].to_s.strip; uticor_tip = [TagXml::DataTypeMapper.uticor_label(raw_dt), TagXml::DataTypeMapper.uticor_label(raw_enc)].reject(&:blank?).join(" / ") %>
+                    <% raw_dt = row["_raw_datatype"].to_s.strip %>
+                    <% raw_enc = row["_raw_encode"].to_s.strip %>
+                    <% dt_tip = TagXml::DataTypeMapper.uticor_label(raw_dt).presence || "Unknown" %>
+                    <% enc_tip = TagXml::DataTypeMapper.uticor_label(raw_enc).presence || "Unknown" %>
+                    <% uticor_tip = "Data Type: #{dt_tip}\nEncode: #{enc_tip}" %>
                     <%= hidden_field_tag "records[#{idx}][Data Type]", val, class: "cell", data: { workspace_lock_target: "editable" }, disabled: true %>
                     <%= hidden_field_tag "records[#{idx}][_raw_datatype]", raw_dt.presence || "0", id: nil %>
                     <%= hidden_field_tag "records[#{idx}][_raw_encode]", raw_enc.presence || "255", id: nil %>
-                    <button type="button" class="data-type-trigger<%= ' data-type-unique' if val == 'Unique' %>" data-data-type-picker-target="trigger" data-action="click->data-type-picker#open" data-raw-datatype="<%= raw_dt %>" data-raw-encode="<%= raw_enc %>" data-value="<%= val %>" title="<%= uticor_tip.presence || "Data type" %>" data-workspace-lock-target="editable" disabled><%= val.presence || "—" %></button>
+                    <button type="button" class="data-type-trigger<%= ' data-type-unique' if val == 'Unique' %>" data-data-type-picker-target="trigger" data-action="click->data-type-picker#open" data-raw-datatype="<%= raw_dt %>" data-raw-encode="<%= raw_enc %>" data-value="<%= val %>" title="<%= uticor_tip %>" data-workspace-lock-target="editable" disabled><%= val.presence || "—" %></button>
                   <% when :scaling %>
                     <%= select_tag param_key, options_for_select(scaling_options, val), name: param_key, class: "cell", data: { workspace_lock_target: "editable" }, disabled: true %>
                   <% when :data_length %>

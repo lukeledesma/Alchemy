@@ -3,7 +3,11 @@
 require Rails.root.join("app/services/tag_xml.rb").to_s
 
 class DocumentsController < ApplicationController
-  RECORD_KEYS = ["Tag Group", "Tag Name", "Data Type", "Address Start", "Data Length", "Scaling", "Read/Write"].freeze
+  # --- Constants / Rules ----------------------------------------------------
+  RECORD_KEYS = [ "Tag Group", "Tag Name", "Data Type", "Address Start", "Data Length", "Scaling", "Read/Write" ].freeze
+  RAW_PRESERVE_KEYS = %w[_raw_datatype _raw_encode _raw_verify].freeze
+  RECORD_UPDATE_KEYS = (RECORD_KEYS + RAW_PRESERVE_KEYS).freeze
+  METADATA_UPDATE_KEYS = %w[metadata_filename metadata_ip metadata_protocol].freeze
 
   # Canonical order for Data Type (register / type precedence)
   DATA_TYPE_ORDER = [
@@ -15,6 +19,7 @@ class DocumentsController < ApplicationController
 
   before_action :set_document, only: %i[show edit update export destroy]
 
+  # --- Home Page ------------------------------------------------------------
   def index
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     response.headers["Pragma"] = "no-cache"
@@ -23,7 +28,7 @@ class DocumentsController < ApplicationController
     @doc_disambiguator = {}
     by_title.each do |_title, docs|
       if docs.size > 1
-        docs.each_with_index { |d, i| @doc_disambiguator[d.id] = i + 1 }
+        docs.each_with_index { |d, i| @doc_disambiguator[d.id] = docs.size - i }
       else
         @doc_disambiguator[docs[0].id] = nil
       end
@@ -34,24 +39,32 @@ class DocumentsController < ApplicationController
     redirect_to root_path
   end
 
+  # --- Import / Create ------------------------------------------------------
   def create
     if params[:blank].present?
-      # If any untitled doc with 0 tags exists, open that instead of creating another
+      # Keep only one untitled-empty placeholder document.
+      # If it is already top-most, flash it. Otherwise, replace it with a fresh new row at top.
       existing = Document.order(updated_at: :desc).limit(50).find do |d|
         (d.metadata_filename.blank? || d.metadata_filename == "Untitled ##{d.id}") && d.records.size == 0
       end
       if existing
-        flash[:edit_status] = "Opened existing untitled document"
-        flash[:new_document] = true
-        redirect_to edit_document_path(existing)
-        return
+        top_doc_id = Document.order(created_at: :desc).limit(1).pick(:id)
+        if top_doc_id == existing.id
+          flash[:reused_existing_doc_id] = existing.id
+          flash[:reused_existing_was_top] = true
+          redirect_to root_path
+          return
+        end
+        old_created_order_ids = Document.order(created_at: :desc).limit(50).pluck(:id)
+        old_index = old_created_order_ids.index(existing.id)
+        flash[:replaced_untitled_old_index] = old_index if old_index
+        existing.destroy
       end
       @document = Document.new(records: [], metadata_ip: Document::DEFAULT_IP, metadata_protocol: Document::DEFAULT_PROTOCOL, metadata_filename: "")
       if @document.save
         @document.update_column(:metadata_filename, "Untitled ##{@document.id}")
-        flash[:edit_status] = "New document created"
-        flash[:new_document] = true
-        redirect_to edit_document_path(@document)
+        flash[:just_imported] = true
+        redirect_to root_path
       else
         redirect_to root_path, alert: "Could not create document."
       end
@@ -92,6 +105,7 @@ class DocumentsController < ApplicationController
     redirect_to root_path
   end
 
+  # --- Workspace View -------------------------------------------------------
   def show
     # Same view as edit - editable table
     render :edit
@@ -153,9 +167,10 @@ class DocumentsController < ApplicationController
     end
   end
 
-  RAW_PRESERVE_KEYS = %w[_raw_datatype _raw_encode _raw_verify].freeze
-
+  # --- Save Pipeline --------------------------------------------------------
   def update
+    return if handle_delta_update
+
     raw = params[:records]
     records = []
     # params[:records] is ActionController::Parameters (not Hash), so use hash-like check
@@ -163,7 +178,7 @@ class DocumentsController < ApplicationController
 
     if hash_like
       numeric_keys = raw.keys.select { |k| k.to_s.match?(/\A\d+\z/) }.sort_by { |k| k.to_s.to_i }
-      numeric_pairs = numeric_keys.map { |k| [k, raw[k]] }
+      numeric_pairs = numeric_keys.map { |k| [ k, raw[k] ] }
       existing = @document.records_with_string_keys
       records = numeric_pairs.each_with_index.map do |(_, h), idx|
         next {} unless h.respond_to?(:permit)
@@ -183,7 +198,7 @@ class DocumentsController < ApplicationController
       @document.metadata_filename = params[:metadata_filename].present? ? params[:metadata_filename] : "Untitled ##{@document.id}"
     end
 
-    if @document.save
+    if save_document_with_quiet_sql
       response.headers["X-Records-Saved"] = records.size.to_s
       head :no_content
     else
@@ -191,6 +206,7 @@ class DocumentsController < ApplicationController
     end
   end
 
+  # --- Export / Delete ------------------------------------------------------
   def export
     xml = TagXml::Exporter.export_xml(@document.records_with_string_keys, @document.metadata)
     if xml.blank?
@@ -221,6 +237,107 @@ class DocumentsController < ApplicationController
 
   private
 
+  # --- Delta Save Helpers ---------------------------------------------------
+  def handle_delta_update
+    raw_delta = params[:delta]
+    return false unless raw_delta.respond_to?(:permit)
+
+    delta = raw_delta.permit(:kind, :row_index, :key, :value, fields: {})
+    kind = delta[:kind].to_s
+
+    case kind
+    when "record_field"
+      return render_delta_error("Invalid row index") unless valid_row_index?(delta[:row_index])
+      key = delta[:key].to_s
+      return render_delta_error("Invalid record key") unless RECORD_UPDATE_KEYS.include?(key)
+
+      records = @document.records_with_string_keys
+      idx = delta[:row_index].to_i
+      records[idx] ||= {}
+      before_value = records[idx][key]
+      after_value = delta[:value].to_s
+      records[idx][key] = after_value
+      @document.records = records
+      @pending_change_logs = [ { row_index: idx, field: key, before: before_value, after: after_value } ]
+    when "record_fields"
+      return render_delta_error("Invalid row index") unless valid_row_index?(delta[:row_index])
+
+      fields = delta[:fields].to_h.transform_keys(&:to_s).slice(*RECORD_UPDATE_KEYS)
+      return render_delta_error("No valid record fields provided") if fields.empty?
+
+      records = @document.records_with_string_keys
+      idx = delta[:row_index].to_i
+      records[idx] ||= {}
+      @pending_change_logs = []
+      fields.each do |field_key, after_value|
+        before_value = records[idx][field_key]
+        @pending_change_logs << { row_index: idx, field: field_key, before: before_value, after: after_value.to_s }
+      end
+      records[idx].merge!(fields)
+      @document.records = records
+    when "metadata_field"
+      key = delta[:key].to_s
+      return render_delta_error("Invalid metadata key") unless METADATA_UPDATE_KEYS.include?(key)
+
+      before_value = @document.public_send(key)
+      apply_metadata_field(key, delta[:value].to_s)
+      after_value = @document.public_send(key)
+      @pending_change_logs = [ { row_index: nil, field: key, before: before_value, after: after_value } ]
+    else
+      return render_delta_error("Invalid delta update kind")
+    end
+
+    if save_document_with_quiet_sql
+      log_pending_changes
+      head :no_content
+    else
+      render :edit, status: :unprocessable_entity
+    end
+    true
+  end
+
+  def valid_row_index?(idx)
+    idx.to_s.match?(/\A\d+\z/)
+  end
+
+  def apply_metadata_field(key, value)
+    case key
+    when "metadata_filename"
+      @document.metadata_filename = value.present? ? value : "Untitled ##{@document.id}"
+    when "metadata_ip"
+      @document.metadata_ip = value
+    when "metadata_protocol"
+      @document.metadata_protocol = value
+    end
+  end
+
+  def render_delta_error(message)
+    render json: { error: message }, status: :unprocessable_entity
+    true
+  end
+
+  def save_document_with_quiet_sql
+    logger = ActiveRecord::Base.logger
+    return @document.save unless logger&.respond_to?(:silence)
+
+    logger.silence(Logger::WARN) { @document.save }
+  end
+
+  def log_pending_changes
+    logs = Array(@pending_change_logs)
+    return if logs.empty?
+
+    file_name = @document.metadata_filename.presence || "Untitled ##{@document.id}"
+    logs.each do |entry|
+      row_part = entry[:row_index].nil? ? "" : " row=#{entry[:row_index]}"
+      Rails.logger.info(
+        "[AlchemyChange] file=#{file_name.inspect}#{row_part} field=#{entry[:field].inspect} before=#{entry[:before].to_s.inspect} after=#{entry[:after].to_s.inspect}"
+      )
+    end
+    @pending_change_logs = nil
+  end
+
+  # --- Query / Import Parsing Helpers --------------------------------------
   def set_document
     @document = Document.find(params[:id])
   end
@@ -232,23 +349,23 @@ class DocumentsController < ApplicationController
       Dir.mktmpdir("alchemy_tar") do |dir|
         success = system("tar", "-xf", path, "-C", dir, out: File::NULL, err: File::NULL)
         unless success
-          return [nil, name]
+          return [ nil, name ]
         end
         xml_path = Dir.glob(File.join(dir, "**", "*.xml")).first
         xml_path ||= Dir.glob(File.join(dir, "**", "*")).find { |f| File.file?(f) }
-        next [nil, name] unless xml_path
+        next [ nil, name ] unless xml_path
         display = name.sub(/\.tar\z/i, "")
         display = File.basename(xml_path) if display.blank?
         # Copy to a temp file so we can use it after the tar dir is removed
-        tmp = Tempfile.new(["alchemy_xml", ".xml"])
+        tmp = Tempfile.new([ "alchemy_xml", ".xml" ])
         tmp.binmode
         tmp.write(File.binread(xml_path))
         tmp.rewind
         @_import_tempfile = tmp
-        [tmp.path, display.presence || name]
+        [ tmp.path, display.presence || name ]
       end
     else
-      [path, name]
+      [ path, name ]
     end
   end
 

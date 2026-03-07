@@ -5,12 +5,18 @@ const PLACEHOLDER = "__INDEX__"
 export default class extends Controller {
   static targets = ["tbody", "templateRow", "addBtn", "statusCount", "statusMessage", "titleInput"]
 
+  // Lifecycle: wire up DOM and global listeners for editing, status, and row operations.
   connect() {
     this.clipboard = []
     this.anchorRow = null
     this.boundKeydown = this.handleKeydown.bind(this)
+    this.boundKeyup = this.handleKeyup.bind(this)
     this.boundFormChange = this.markUnsaved.bind(this)
+    this.boundBeforeUnload = () => { this._isUnloading = true }
+    this._isUnloading = false
     this.element.addEventListener("keydown", this.boundKeydown, true)
+    this.element.addEventListener("keyup", this.boundKeyup, true)
+    window.addEventListener("beforeunload", this.boundBeforeUnload)
     if (this.hasAddBtnTarget) this.addBtnTarget.addEventListener("click", this.addRow.bind(this))
     if (this.hasTbodyTarget) {
       this._hoverRow = null
@@ -29,8 +35,12 @@ export default class extends Controller {
     document.addEventListener("keydown", this.boundGlobalKeydown, true)
     if (this.hasStatusMessageTarget) {
       this._statusHighlightedRows = null
+      this._statusDetailedMode = false
       this.boundStatusClick = this.handleStatusClick.bind(this)
       this.statusMessageTarget.addEventListener("click", this.boundStatusClick)
+      const initial = (this.statusMessageTarget.textContent || "").trim()
+      this._lastStatus = initial ? { simple: initial, detailed: initial } : null
+      this.renderStatusMessage()
     }
     this.element.addEventListener("input", this.boundFormChange)
     this.element.addEventListener("change", this.boundFormChange)
@@ -38,9 +48,9 @@ export default class extends Controller {
     this.element.addEventListener("input", this.boundValidateTable)
     this.element.addEventListener("change", this.boundValidateTable)
     this.boundCellChanged = (e) => {
-      if (e.detail?.message && e.detail?.row) this.setStatus(e.detail.message, [e.detail.row])
+      if ((e.detail?.status || e.detail?.message) && e.detail?.row) this.setStatus(e.detail?.status || e.detail.message, [e.detail.row])
       this.validateTable()
-      this.saveForm()
+      this.saveForm({ delta: e.detail?.delta || null, clearSortIndicator: true })
     }
     this.element.addEventListener("tag-table:cell-changed", this.boundCellChanged)
     this.boundFocusIn = this.handleCellFocusIn.bind(this)
@@ -60,6 +70,8 @@ export default class extends Controller {
 
   disconnect() {
     this.element.removeEventListener("keydown", this.boundKeydown, true)
+    this.element.removeEventListener("keyup", this.boundKeyup, true)
+    window.removeEventListener("beforeunload", this.boundBeforeUnload)
     if (this.hasAddBtnTarget) this.addBtnTarget.removeEventListener("click", this.addRow.bind(this))
     if (this.hasTbodyTarget) {
       this.tbodyTarget.removeEventListener("click", this.boundTbodyClick, true)
@@ -97,6 +109,7 @@ export default class extends Controller {
     })
   }
 
+  // Validation: field-level format checks and duplicate address detection by register kind.
   validateTable() {
     if (!this.hasTbodyTarget) return
     const rows = this.dataRows
@@ -119,7 +132,7 @@ export default class extends Controller {
 
     const keyCount = new Map()
     rows.forEach(tr => {
-      const dataTypeEl = tr.querySelector("select[name*='[Data Type]']")
+      const dataTypeEl = tr.querySelector("input[name*='[Data Type]'], select[name*='[Data Type]']")
       const addrEl = tr.querySelector("input[name*='[Address Start]']")
       if (!dataTypeEl || !addrEl) return
       const kind = (dataTypeEl.value || "").trim() === "BOOL" ? "coil" : "holding"
@@ -128,7 +141,7 @@ export default class extends Controller {
       keyCount.set(key, (keyCount.get(key) || 0) + 1)
     })
     rows.forEach(tr => {
-      const dataTypeEl = tr.querySelector("select[name*='[Data Type]']")
+      const dataTypeEl = tr.querySelector("input[name*='[Data Type]'], select[name*='[Data Type]']")
       const addrEl = tr.querySelector("input[name*='[Address Start]']")
       if (!dataTypeEl || !addrEl) return
       const kind = (dataTypeEl.value || "").trim() === "BOOL" ? "coil" : "holding"
@@ -136,6 +149,28 @@ export default class extends Controller {
       const key = `${kind}:${addr}`
       if (addr !== "" && (keyCount.get(key) || 0) > 1) addrEl.classList.add("cell-duplicate")
     })
+
+    const tagNameCount = new Map()
+    rows.forEach(tr => {
+      const tagNameEl = tr.querySelector("input[name*='[Tag Name]']")
+      if (!tagNameEl) return
+      const tagName = (tagNameEl.value || "").trim()
+      if (tagName === "") return
+      tagNameCount.set(tagName, (tagNameCount.get(tagName) || 0) + 1)
+    })
+    rows.forEach(tr => {
+      const tagNameEl = tr.querySelector("input[name*='[Tag Name]']")
+      if (!tagNameEl) return
+      const tagName = (tagNameEl.value || "").trim()
+      if (tagName !== "" && (tagNameCount.get(tagName) || 0) > 1) tagNameEl.classList.add("cell-duplicate")
+    })
+
+    const ipEl = this.element.querySelector("input.connection-inline[name='metadata_ip']")
+    if (ipEl) {
+      ipEl.classList.remove("cell-invalid")
+      const ipValue = (ipEl.value || "").trim()
+      if (ipValue !== "" && !this.isValidIpv4(ipValue)) ipEl.classList.add("cell-invalid")
+    }
   }
 
   markUnsaved(e) {
@@ -155,55 +190,279 @@ export default class extends Controller {
         }
       } else if (e.target.classList.contains("workspace-title-input")) {
         e.target.classList.remove("cell-invalid")
-        this.setStatus("Document name updated")
-      } else if (e.target.classList.contains("connection-inline")) {
-        this.setStatus("Connection updated")
       }
     }
   }
 
-  setStatus(message, rows = null) {
+  // Status system: simple message by default; click status text to toggle detailed view.
+  setStatus(status, rows = null) {
     if (!this.hasStatusMessageTarget) return
-    this.statusMessageTarget.textContent = message
+    this._lastStatus = this.normalizeStatus(status)
+    this._statusDetailedMode = false
+    this.clearStatusHighlight()
+    this.clearHeaderStatusHighlight()
+    this.clearDeletedGhostRows()
+    this.renderStatusMessage()
     this._lastStatusRows = rows && rows.length ? Array.from(rows) : null
-    if (this._statusHighlightedRows != null && this._lastStatusRows?.length) {
-      this.clearStatusHighlight()
-      this._statusHighlightedRows = this._lastStatusRows.filter(r => r && r.isConnected)
-      this._statusHighlightedRows.forEach(r => r.classList.add("row-status-highlight"))
+  }
+
+  normalizeStatus(status) {
+    if (status && typeof status === "object") {
+      const simple = String(status.simple || status.message || "")
+      const detailed = String(status.detailed || simple)
+      const meta = status.meta || null
+      return { simple, detailed, meta }
     }
+    const text = String(status || "")
+    return { simple: text, detailed: text, meta: null }
+  }
+
+  renderStatusMessage() {
+    if (!this.hasStatusMessageTarget) return
+    if (!this._lastStatus) {
+      this.statusMessageTarget.textContent = ""
+      this.statusMessageTarget.classList.remove("status-detailed")
+      this.statusMessageTarget.classList.remove("status-detailed-deleted")
+      return
+    }
+    const text = this._statusDetailedMode ? this._lastStatus.detailed : this._lastStatus.simple
+    this.statusMessageTarget.textContent = text
+    this.statusMessageTarget.classList.toggle("status-detailed", !!this._statusDetailedMode)
+    const detailKind = this._lastStatus?.meta?.kind
+    const isErrorDetail = !!(this._statusDetailedMode && (detailKind === "rows-deleted" || detailKind === "invalid-address" || detailKind === "invalid-ip"))
+    this.statusMessageTarget.classList.toggle("status-detailed-deleted", isErrorDetail)
+  }
+
+  flashStatusRestored() {
+    if (!this.hasStatusMessageTarget) return
+    this.statusMessageTarget.classList.remove("status-restored-flash")
+    // Restart animation if restore is triggered repeatedly.
+    void this.statusMessageTarget.offsetWidth
+    this.statusMessageTarget.classList.add("status-restored-flash")
+    this.statusMessageTarget.addEventListener("animationend", () => {
+      this.statusMessageTarget.classList.remove("status-restored-flash")
+    }, { once: true })
+  }
+
+  statusValueText(value) {
+    const text = String(value ?? "").trim()
+    return text === "" ? "(blank)" : text
+  }
+
+  buildFieldChangeStatus(field, beforeValue, afterValue) {
+    const beforeText = this.statusValueText(beforeValue)
+    const afterText = this.statusValueText(afterValue)
+    return {
+      simple: `${field} updated`,
+      detailed: `${field} ${beforeText} > ${field} ${afterText}`
+    }
+  }
+
+  headerFieldLabel(fieldName) {
+    if (fieldName === "metadata_filename") return "Document name"
+    if (fieldName === "metadata_ip") return "IP"
+    if (fieldName === "metadata_protocol") return "Protocol"
+    return "Connection"
+  }
+
+  buildHeaderFieldChangeStatus(el, beforeValue, afterValue) {
+    const fieldName = (el?.getAttribute("name") || "").trim()
+    const label = this.headerFieldLabel(fieldName)
+    const beforeText = this.statusValueText(beforeValue)
+    const afterText = this.statusValueText(afterValue)
+    return {
+      simple: `${label} updated`,
+      detailed: `${label} ${beforeText} > ${label} ${afterText}`,
+      meta: { kind: "header-field-change", headerFieldNames: [fieldName] }
+    }
+  }
+
+  buildInvalidIpStatus(beforeValue, afterValue) {
+    const beforeText = this.statusValueText(beforeValue)
+    const afterText = this.statusValueText(afterValue)
+    return {
+      simple: "An invalid IP was entered",
+      detailed: `IP ${beforeText} > IP ${afterText} (invalid)`,
+      meta: { kind: "invalid-ip", headerFieldNames: ["metadata_ip"] }
+    }
+  }
+
+  isValidIpv4(value) {
+    const text = String(value || "").trim()
+    const octets = text.split(".")
+    if (octets.length !== 4) return false
+    return octets.every((octet) => {
+      if (!/^\d+$/.test(octet)) return false
+      const n = Number(octet)
+      return n >= 0 && n <= 255
+    })
+  }
+
+  buildInvalidAddressStatus(beforeValue, afterValue) {
+    const beforeText = this.statusValueText(beforeValue)
+    const afterText = this.statusValueText(afterValue)
+    return {
+      simple: "An invalid address was entered",
+      detailed: `Address Start ${beforeText} > Address Start ${afterText} (invalid)`,
+      meta: { kind: "invalid-address" }
+    }
+  }
+
+  statusHighlightClass() {
+    const kind = this._lastStatus?.meta?.kind
+    if (kind === "invalid-address") return "row-status-highlight-deleted"
+    return "row-status-highlight"
   }
 
   clearStatusHighlight() {
     if (!this._statusHighlightedRows) return
-    this._statusHighlightedRows.forEach(r => { if (r && r.isConnected) r.classList.remove("row-status-highlight") })
+    this._statusHighlightedRows.forEach(r => {
+      if (!r || !r.isConnected) return
+      r.classList.remove("row-status-highlight", "row-status-highlight-deleted")
+    })
     this._statusHighlightedRows = null
+  }
+
+  clearHeaderStatusHighlight() {
+    this.element.querySelectorAll(".workspace-title-input, .connection-inline").forEach((el) => {
+      el.classList.remove("header-status-highlight", "header-status-highlight-error")
+    })
+  }
+
+  showHeaderStatusHighlight(fieldNames, className = "header-status-highlight") {
+    this.clearHeaderStatusHighlight()
+    if (!Array.isArray(fieldNames) || fieldNames.length === 0) return
+    fieldNames.forEach((fieldName) => {
+      if (!fieldName) return
+      const el = this.element.querySelector(`[name='${fieldName}']`)
+      if (el) el.classList.add(className)
+    })
+  }
+
+  clearDeletedGhostRows() {
+    this.element.querySelectorAll("tr.row-deleted-ghost").forEach((tr) => tr.remove())
+  }
+
+  hasDeletedGhostPreviewActive() {
+    return !!(this._statusDetailedMode && this._lastStatus?.meta?.kind === "rows-deleted")
+  }
+
+  showDeletedGhostRows(entries) {
+    if (!this.hasTbodyTarget || !Array.isArray(entries) || entries.length === 0) return
+    this.clearDeletedGhostRows()
+    const tbody = this.tbodyTarget
+    const tableBodyRows = () => Array.from(tbody.querySelectorAll("tr:not(.tag-row-template):not(.row-deleted-ghost)"))
+    const sorted = entries
+      .map((entry) => ({ index: Number(entry.index), values: Array.isArray(entry.values) ? entry.values : [] }))
+      .filter((entry) => Number.isInteger(entry.index) && entry.index >= 0)
+      .sort((a, b) => a.index - b.index)
+    if (sorted.length === 0) return
+    const colCount = Math.max(1, this.element.querySelectorAll(".tag-table thead th").length)
+
+    let inserted = 0
+    sorted.forEach((entry) => {
+      const rows = tableBodyRows()
+      const targetIndex = entry.index - inserted
+      const referenceRow = targetIndex >= rows.length ? this.templateRowTarget : rows[targetIndex]
+      const ghost = document.createElement("tr")
+      ghost.className = "row-deleted-ghost row-status-highlight-deleted"
+      ghost.setAttribute("aria-hidden", "true")
+      for (let i = 0; i < colCount; i += 1) {
+        const cell = document.createElement("td")
+        const value = entry.values[i]
+        const shell = document.createElement("div")
+        shell.className = "cell ghost-cell"
+        if (value && typeof value === "object" && "label" in value) {
+          shell.textContent = value.label || ""
+        } else {
+          shell.textContent = value == null ? "" : String(value)
+        }
+        cell.appendChild(shell)
+        ghost.appendChild(cell)
+      }
+      tbody.insertBefore(ghost, referenceRow)
+      inserted += 1
+    })
+  }
+
+  buildDeletedRowsStatus(count, deletedEntries) {
+    const noun = count === 1 ? "row" : "rows"
+    return {
+      simple: `${count} ${noun} deleted`,
+      detailed: `${count} ${noun} deleted (original positions shown)`,
+      meta: { kind: "rows-deleted", entries: deletedEntries }
+    }
+  }
+
+  restoreDeletedRowsFromStatus() {
+    const entries = this._lastStatus?.meta?.entries
+    if (!Array.isArray(entries) || entries.length === 0) return false
+    this.clearDeletedGhostRows()
+    const sorted = entries
+      .map((entry) => ({ index: Number(entry.index), values: Array.isArray(entry.values) ? entry.values : [] }))
+      .filter((entry) => Number.isInteger(entry.index) && entry.index >= 0)
+      .sort((a, b) => a.index - b.index)
+    if (sorted.length === 0) return false
+
+    const restoredRows = []
+    sorted.forEach((entry) => {
+      const rows = this.dataRows
+      const ref = entry.index >= rows.length ? this.templateRowTarget : rows[entry.index]
+      const restored = this.addRowWithValues(entry.values, ref)
+      if (restored) restoredRows.push(restored)
+    })
+    this.reindexRows()
+    this.clearHoverState()
+    this.updateStatusCount()
+    this.validateTable()
+    this.saveForm({ clearSortIndicator: true })
+    restoredRows.forEach((row) => {
+      row.classList.add("row-restored-flash")
+      row.addEventListener("animationend", () => row.classList.remove("row-restored-flash"), { once: true })
+    })
+    const restoredLabel = restoredRows.length === 1 ? "Row restored" : "Rows restored"
+    this.setStatus({ simple: restoredLabel, detailed: restoredLabel, meta: { kind: "rows-restored" } }, restoredRows)
+    this.flashStatusRestored()
+    return true
   }
 
   handleStatusClick(e) {
     if (e.button !== 0) return
-    if (!this._lastStatusRows?.length) return
+    if (!this._lastStatus) return
+    if (!this._lastStatusRows?.length) {
+      this._statusDetailedMode = !this._statusDetailedMode
+      const deletedMeta = this._lastStatus.meta && this._lastStatus.meta.kind === "rows-deleted" ? this._lastStatus.meta : null
+      if (deletedMeta && this._statusDetailedMode) this.showDeletedGhostRows(deletedMeta.entries)
+      else this.clearDeletedGhostRows()
+      const headerMeta = this._lastStatus?.meta
+      const headerNames = (headerMeta?.kind === "header-field-change" || headerMeta?.kind === "invalid-ip") ? headerMeta.headerFieldNames : null
+      const headerClass = headerMeta?.kind === "invalid-ip" ? "header-status-highlight-error" : "header-status-highlight"
+      if (this._statusDetailedMode) this.showHeaderStatusHighlight(headerNames, headerClass)
+      else this.clearHeaderStatusHighlight()
+      this.renderStatusMessage()
+      return
+    }
     const lastSet = new Set(this._lastStatusRows.filter(r => r && r.isConnected))
     const highlightedSet = this._statusHighlightedRows ? new Set(this._statusHighlightedRows) : new Set()
     const same = lastSet.size === highlightedSet.size && [...lastSet].every(r => highlightedSet.has(r))
     if (same) {
       this.clearStatusHighlight()
+      this.clearHeaderStatusHighlight()
+      this.clearDeletedGhostRows()
+      this._statusDetailedMode = false
+      this.renderStatusMessage()
       return
     }
     this.clearStatusHighlight()
+    this.clearHeaderStatusHighlight()
     this._statusHighlightedRows = this._lastStatusRows.filter(r => r && r.isConnected)
-    this._statusHighlightedRows.forEach(r => r.classList.add("row-status-highlight"))
+    const highlightClass = this.statusHighlightClass()
+    this._statusHighlightedRows.forEach(r => r.classList.add(highlightClass))
+    this._statusDetailedMode = true
+    this.renderStatusMessage()
   }
 
   requireTitleBeforeHome(e) {
-    if (!this.hasTitleInputTarget) return
-    const title = (this.titleInputTarget.value || "").trim()
-    if (title === "") {
-      e.preventDefault()
-      this.titleInputTarget.classList.add("cell-invalid")
-      this.setStatus("Enter a title")
-      this.titleInputTarget.focus()
-      return
-    }
     e.preventDefault()
     const homeUrl = e.currentTarget && e.currentTarget.href
     this.saveForm().then((res) => {
@@ -217,85 +476,320 @@ export default class extends Controller {
     this.statusCountTarget.textContent = n + " tag" + (n !== 1 ? "s" : "")
   }
 
+  // Keyboard commit/cancel behavior for cells and header fields.
   handleKeydown(e) {
     const el = e.target
     if (!el || !this.element.contains(el)) return
     const isCell = (el.tagName === "INPUT" || el.tagName === "SELECT") && el.classList.contains("cell") && !el.matches('button, [type="submit"]')
-    if (e.key === "Enter" && isCell) {
-      e.preventDefault()
+    const isHeaderEditable = this.isHeaderEditable(el)
+    if ((e.key === "Enter" || e.key === "Tab") && isCell) {
+      const isEnter = e.key === "Enter"
+      const isTab = e.key === "Tab"
+      if (isEnter) e.preventDefault()
+      const originalValue = this._editingCell === el ? this._editingCellOriginalValue : el.value
+      const hasChanged = String(el.value ?? "") !== String(originalValue ?? "")
       this._committedOnEnter = true
-      const m = el.name && el.name.match(/records\[\d+\]\[([^\]]+)\]/)
-      const row = el.closest("tr.tag-data-row")
-      const validRow = row && !row.classList.contains("tag-row-template")
-      if (m) {
-        if (m[1] === "Address Start" && /[^0-9]/.test((el.value || "").trim())) {
-          this.setStatus("An invalid address was entered", validRow ? [row] : null)
-        } else {
-          this.setStatus(m[1] + " updated", validRow ? [row] : null)
+      if (hasChanged) {
+        const m = el.name && el.name.match(/records\[\d+\]\[([^\]]+)\]/)
+        const row = el.closest("tr.tag-data-row")
+        const validRow = row && !row.classList.contains("tag-row-template")
+        if (m) {
+          if (m[1] === "Address Start" && /[^0-9]/.test((el.value || "").trim())) {
+            this.setStatus(this.buildInvalidAddressStatus(originalValue, el.value), validRow ? [row] : null)
+          } else {
+            this.setStatus(this.buildFieldChangeStatus(m[1], originalValue, el.value), validRow ? [row] : null)
+          }
+        }
+        this.saveForm({ delta: this.buildRecordFieldDelta(el), clearSortIndicator: true })
+      }
+      if (isTab) {
+        const nextTextCell = this.findNextTextCell(el, e.shiftKey)
+        if (nextTextCell) {
+          e.preventDefault()
+          nextTextCell.focus()
+          if (nextTextCell.tagName === "INPUT" || nextTextCell.tagName === "TEXTAREA") nextTextCell.select()
         }
       }
-      this.saveForm()
+      if (isEnter) el.blur()
+    } else if (e.key === "Enter" && isHeaderEditable) {
+      e.preventDefault()
+      const originalValue = this._editingHeaderField === el ? this._editingHeaderFieldOriginalValue : el.value
+      const hasChanged = String(el.value ?? "") !== String(originalValue ?? "")
+      this._headerFieldCommitted = true
+      if (hasChanged) {
+        const isIpField = (el.getAttribute("name") || "") === "metadata_ip"
+        const isInvalidIp = isIpField && (el.value || "").trim() !== "" && !this.isValidIpv4(el.value)
+        if (isInvalidIp) this.setStatus(this.buildInvalidIpStatus(originalValue, el.value))
+        else this.setStatus(this.buildHeaderFieldChangeStatus(el, originalValue, el.value))
+        this.saveForm({ delta: this.buildHeaderFieldDelta(el) })
+      }
+      this.validateTable()
       el.blur()
     } else if (e.key === "Escape" && isCell) {
-      e.preventDefault()
+      const isSelect = el.tagName === "SELECT"
+      if (!isSelect) e.preventDefault()
       if (this._editingCell) {
+        this._editingCellCanceled = true
         this._editingCell.value = this._editingCellOriginalValue
         this._editingCell = null
       }
-      el.blur()
+      this.validateTable()
+      if (isSelect) this.blurSelectAfterClose(el)
+      else el.blur()
+    } else if (e.key === "Escape" && isHeaderEditable) {
+      const isSelect = el.tagName === "SELECT"
+      if (!isSelect) e.preventDefault()
+      if (this._editingHeaderField === el) {
+        this._editingHeaderFieldCanceled = true
+        this._editingHeaderField.value = this._editingHeaderFieldOriginalValue
+        this._headerFieldCommitted = false
+      }
+      this.validateTable()
+      if (isSelect) this.blurSelectAfterClose(el)
+      else el.blur()
     }
+  }
+
+  handleKeyup(e) {
+    if (e.key !== "Escape") return
+    const el = e.target
+    if (!el || !this.element.contains(el) || el.tagName !== "SELECT") return
+    const isCellSelect = el.classList.contains("cell") && el.closest("tr.tag-data-row")
+    if (!isCellSelect && !this.isHeaderEditable(el)) return
+    this.blurSelectAfterClose(el)
+  }
+
+  blurSelectAfterClose(selectEl) {
+    const ensureBlur = () => {
+      if (document.activeElement !== selectEl) return
+      selectEl.blur()
+      if (document.activeElement === selectEl) {
+        const fallback = this.element
+        const hadTabindex = fallback.hasAttribute("tabindex")
+        if (!hadTabindex) fallback.setAttribute("tabindex", "-1")
+        fallback.focus({ preventScroll: true })
+        if (!hadTabindex) fallback.removeAttribute("tabindex")
+      }
+    }
+    requestAnimationFrame(ensureBlur)
+    setTimeout(ensureBlur, 0)
+    setTimeout(ensureBlur, 40)
+  }
+
+  findNextTextCell(currentEl, backwards = false) {
+    const allCells = Array.from(this.element.querySelectorAll("input.cell:not([type='hidden']), textarea.cell, select.cell"))
+      .filter((cell) => !cell.disabled)
+      .filter((cell) => cell.offsetParent !== null)
+    const textCells = allCells.filter((cell) => cell.tagName !== "SELECT")
+    if (textCells.length === 0) return null
+    const currentAllIndex = allCells.indexOf(currentEl)
+    if (currentAllIndex === -1) return null
+    if (backwards) {
+      for (let i = currentAllIndex - 1; i >= 0; i -= 1) {
+        if (allCells[i].tagName !== "SELECT") return allCells[i]
+      }
+      return null
+    }
+    for (let i = currentAllIndex + 1; i < allCells.length; i += 1) {
+      if (allCells[i].tagName !== "SELECT") return allCells[i]
+    }
+    return null
   }
 
   handleCellFocusIn(e) {
     const el = e.target
+    if (this.hasDeletedGhostPreviewActive() && (el.tagName === "INPUT" || el.tagName === "SELECT" || el.tagName === "TEXTAREA")) {
+      if (this.restoreDeletedRowsFromStatus()) {
+        requestAnimationFrame(() => {
+          if (el && el.isConnected) el.focus()
+        })
+      }
+    }
     if ((el.tagName === "INPUT" || el.tagName === "SELECT") && el.classList.contains("cell") && el.closest("tr.tag-data-row")) {
       this._editingCell = el
       this._editingCellOriginalValue = el.value
       this._committedOnEnter = false
+      this._editingCellCanceled = false
+      return
+    }
+    if (this.isHeaderEditable(el)) {
+      this._editingHeaderField = el
+      this._editingHeaderFieldOriginalValue = el.value
+      this._headerFieldCommitted = false
+      this._editingHeaderFieldCanceled = false
     }
   }
 
   handleCellFocusOut(e) {
-    if (!this._editingCell || e.target !== this._editingCell) return
-    if (!this._committedOnEnter) {
-      this._editingCell.value = this._editingCellOriginalValue
+    if (this._editingCell && e.target === this._editingCell) {
+      const el = this._editingCell
+      const originalValue = this._editingCellOriginalValue
+      const committed = this._committedOnEnter
+      const canceled = this._editingCellCanceled
+      this._editingCell = null
+      this._committedOnEnter = false
+      this._editingCellCanceled = false
+      if (canceled || this._isUnloading) return
+      if (committed) return
+      if (el.tagName === "SELECT") return
+      const hasChanged = String(el.value ?? "") !== String(originalValue ?? "")
+      if (hasChanged) {
+        const m = el.name && el.name.match(/records\[\d+\]\[([^\]]+)\]/)
+        const row = el.closest("tr.tag-data-row")
+        const validRow = row && !row.classList.contains("tag-row-template")
+        if (m) {
+          if (m[1] === "Address Start" && /[^0-9]/.test((el.value || "").trim())) {
+            this.setStatus(this.buildInvalidAddressStatus(originalValue, el.value), validRow ? [row] : null)
+          } else {
+            this.setStatus(this.buildFieldChangeStatus(m[1], originalValue, el.value), validRow ? [row] : null)
+          }
+          this.saveForm({ delta: this.buildRecordFieldDelta(el), clearSortIndicator: true })
+        }
+      }
+      return
     }
-    this._editingCell = null
-    this._committedOnEnter = false
+    if (this._editingHeaderField && e.target === this._editingHeaderField) {
+      const el = this._editingHeaderField
+      const originalValue = this._editingHeaderFieldOriginalValue
+      const committed = this._headerFieldCommitted
+      const canceled = this._editingHeaderFieldCanceled
+      this._editingHeaderField = null
+      this._headerFieldCommitted = false
+      this._editingHeaderFieldCanceled = false
+      if (canceled || this._isUnloading) return
+      if (committed) return
+      if (el.tagName === "SELECT") return
+      const hasChanged = String(el.value ?? "") !== String(originalValue ?? "")
+      if (hasChanged) {
+        const isIpField = (el.getAttribute("name") || "") === "metadata_ip"
+        const isInvalidIp = isIpField && (el.value || "").trim() !== "" && !this.isValidIpv4(el.value)
+        if (isInvalidIp) this.setStatus(this.buildInvalidIpStatus(originalValue, el.value))
+        else this.setStatus(this.buildHeaderFieldChangeStatus(el, originalValue, el.value))
+        this.saveForm({ delta: this.buildHeaderFieldDelta(el) })
+      }
+      this.validateTable()
+    }
   }
 
   handleCellSelectChange(e) {
     const el = e.target
-    if (el.tagName !== "SELECT" || !el.classList.contains("cell") || !el.closest("tr.tag-data-row")) return
+    if (el.tagName !== "SELECT") return
+    if (this.isHeaderEditable(el)) {
+      const originalValue = this._editingHeaderField === el ? this._editingHeaderFieldOriginalValue : el.value
+      const hasChanged = String(el.value ?? "") !== String(originalValue ?? "")
+      this._headerFieldCommitted = true
+      if (hasChanged) {
+        const isIpField = (el.getAttribute("name") || "") === "metadata_ip"
+        const isInvalidIp = isIpField && (el.value || "").trim() !== "" && !this.isValidIpv4(el.value)
+        if (isInvalidIp) this.setStatus(this.buildInvalidIpStatus(originalValue, el.value))
+        else this.setStatus(this.buildHeaderFieldChangeStatus(el, originalValue, el.value))
+        this.saveForm({ delta: this.buildHeaderFieldDelta(el) })
+      }
+      this.validateTable()
+      el.blur()
+      return
+    }
+    if (!el.classList.contains("cell") || !el.closest("tr.tag-data-row")) return
     const name = el.getAttribute("name") || ""
     if (!name.includes("[Data Length]") && !name.includes("[Scaling]") && !name.includes("[Read/Write]")) return
     this._committedOnEnter = true
+    const originalValue = this._editingCell === el ? this._editingCellOriginalValue : el.value
     const m = name.match(/records\[\d+\]\[([^\]]+)\]/)
     if (m) {
       const row = el.closest("tr.tag-data-row")
-      this.setStatus(m[1] + " updated", row ? [row] : null)
+      this.setStatus(this.buildFieldChangeStatus(m[1], originalValue, el.value), row ? [row] : null)
     }
-    this.saveForm()
+    this.saveForm({ delta: this.buildRecordFieldDelta(el), clearSortIndicator: true })
     el.blur()
   }
 
+  isHeaderEditable(el) {
+    if (!el || (el.tagName !== "INPUT" && el.tagName !== "SELECT" && el.tagName !== "TEXTAREA")) return false
+    return el.classList.contains("workspace-title-input") || el.classList.contains("connection-inline")
+  }
+
+  buildRecordFieldDelta(el) {
+    const name = el?.getAttribute("name") || ""
+    const m = name.match(/^records\[(\d+)\]\[([^\]]+)\]$/)
+    if (!m) return null
+    return {
+      kind: "record_field",
+      rowIndex: m[1],
+      key: m[2],
+      value: el.value
+    }
+  }
+
+  buildHeaderFieldDelta(el) {
+    const name = (el?.getAttribute("name") || "").trim()
+    if (name === "metadata_filename") {
+      return { kind: "metadata_field", key: "metadata_filename", value: el.value }
+    }
+    if (name === "metadata_ip") {
+      return { kind: "metadata_field", key: "metadata_ip", value: el.value }
+    }
+    if (name === "metadata_protocol") {
+      return { kind: "metadata_field", key: "metadata_protocol", value: el.value }
+    }
+    return null
+  }
+
+  appendDeltaToBody(body, delta) {
+    if (!delta || typeof delta !== "object") return
+    if (delta.kind) body.set("delta[kind]", String(delta.kind))
+    if (delta.rowIndex != null) body.set("delta[row_index]", String(delta.rowIndex))
+    if (delta.key != null) body.set("delta[key]", String(delta.key))
+    if (delta.value != null) body.set("delta[value]", String(delta.value))
+    if (delta.fields && typeof delta.fields === "object") {
+      Object.entries(delta.fields).forEach(([k, v]) => {
+        body.set(`delta[fields][${k}]`, v == null ? "" : String(v))
+      })
+    }
+  }
+
+  // Sorting UI state: once data is edited, current sort marker is no longer authoritative.
+  clearSortIndicator() {
+    const table = this.tbodyTarget && this.tbodyTarget.closest("table")
+    if (!table) return
+    table.querySelectorAll("th.sort-asc").forEach(th => th.classList.remove("sort-asc"))
+    const url = new URL(window.location.href)
+    if (url.searchParams.has("sort") || url.searchParams.has("direction")) {
+      url.searchParams.delete("sort")
+      url.searchParams.delete("direction")
+      history.replaceState({}, "", url.toString())
+    }
+    const base = window.location.pathname
+    table.querySelectorAll("thead th a[href]").forEach(a => {
+      const col = a.textContent.trim()
+      if (col) a.href = `${base}?sort=${encodeURIComponent(col)}&direction=asc`
+    })
+  }
+
   // Save document via PATCH without leaving the page. Returns fetch promise.
-  saveForm() {
+  // Save pipeline: delta payload for single-field edits, full form payload for bulk mutations.
+  saveForm(options = {}) {
+    const delta = options && options.delta ? options.delta : null
+    const clearSortIndicator = !!(options && options.clearSortIndicator)
     const form = this.element
     if (!form || !form.action || form.tagName !== "FORM") return Promise.resolve()
+    if (clearSortIndicator) this.clearSortIndicator()
     const method = (form.getAttribute("method") || "get").toUpperCase()
     const action = form.action
-    // Disabled fields are omitted from FormData — temporarily enable all table cells so every row is sent
-    const cells = form.querySelectorAll("input.cell, select.cell")
-    const wasDisabled = []
-    cells.forEach((el, i) => {
-      wasDisabled[i] = el.disabled
-      el.disabled = false
-    })
-    const body = new FormData(form)
-    cells.forEach((el, i) => {
-      if (wasDisabled[i]) el.disabled = true
-    })
+    const body = delta ? new FormData() : (() => {
+      // Disabled fields are omitted from FormData — temporarily enable all table cells so every row is sent.
+      const cells = form.querySelectorAll("input.cell, select.cell")
+      const wasDisabled = []
+      cells.forEach((el, i) => {
+        wasDisabled[i] = el.disabled
+        el.disabled = false
+      })
+      const fd = new FormData(form)
+      cells.forEach((el, i) => {
+        if (wasDisabled[i]) el.disabled = true
+      })
+      return fd
+    })()
+    if (delta) this.appendDeltaToBody(body, delta)
     if (!body.has("_method")) body.set("_method", "patch")
     const csrf = document.querySelector('meta[name="csrf-token"]')
     if (csrf && csrf.getAttribute("content") && !body.has("authenticity_token")) body.set("authenticity_token", csrf.getAttribute("content"))
@@ -313,6 +807,7 @@ export default class extends Controller {
     })
   }
 
+  // Global shortcuts used while select mode is active.
   handleGlobalKeydown(e) {
     const inWorkspace = this.element.contains(document.activeElement) || this.element.classList.contains("workspace-select-mode")
     if (!inWorkspace) return
@@ -361,6 +856,15 @@ export default class extends Controller {
 
   // Select mode: single click = one row; Cmd/Ctrl+click = toggle (multi); Shift+click = range from anchor.
   handleTbodyClick(e) {
+    if (this.hasDeletedGhostPreviewActive()) {
+      const ghostRow = e.target.closest("tr.row-deleted-ghost")
+      if (ghostRow) {
+        e.preventDefault()
+        e.stopPropagation()
+        this.restoreDeletedRowsFromStatus()
+        return
+      }
+    }
     if (!this.element.classList.contains("workspace-select-mode")) return
     const row = e.target.closest("tr.tag-data-row")
     if (!row || row.classList.contains("tag-row-template")) return
@@ -403,17 +907,29 @@ export default class extends Controller {
     return this.dataRows.filter(tr => tr.classList.contains("row-selected"))
   }
 
+  clearHoverState() {
+    this.dataRows.forEach((tr) => tr.classList.remove("row-hover"))
+    this._hoverRow = null
+  }
+
+  // Clipboard and row mutation helpers.
   removeSelected(e) {
     if (e) e.preventDefault()
     if (this.element.classList.contains("workspace-locked")) return
     const selected = this.getSelectedRows()
     if (selected.length === 0) return
+    const beforeRows = this.dataRows
+    const deletedEntries = selected
+      .map((tr) => ({ index: beforeRows.indexOf(tr), values: this.getRowValues(tr) }))
+      .filter((entry) => entry.index >= 0)
+      .sort((a, b) => a.index - b.index)
     selected.forEach(tr => tr.remove())
     this.reindexRows()
-    this.setStatus(selected.length === 1 ? "1 row deleted" : `${selected.length} rows deleted`)
+    this.clearHoverState()
+    this.setStatus(this.buildDeletedRowsStatus(selected.length, deletedEntries))
     this.updateStatusCount()
     this.validateTable()
-    this.saveForm()
+    this.saveForm({ clearSortIndicator: true })
   }
 
   cutSelected() {
@@ -441,12 +957,13 @@ export default class extends Controller {
       if (newRow) newRows.push(newRow)
     })
     this.reindexRows()
+    this.clearHoverState()
     newRows.forEach(tr => tr.classList.add("row-selected"))
     if (newRows.length) newRows[0].scrollIntoView({ block: "nearest", behavior: "smooth" })
     this.setStatus(newRows.length === 1 ? "1 row duplicated" : `${newRows.length} rows duplicated`, newRows)
     this.updateStatusCount()
     this.validateTable()
-    this.saveForm()
+    this.saveForm({ clearSortIndicator: true })
   }
 
   copySelected() {
@@ -521,12 +1038,13 @@ export default class extends Controller {
       if (newRow) newRows.push(newRow)
     })
     this.reindexRows()
+    this.clearHoverState()
     newRows.forEach(tr => tr.classList.add("row-selected"))
     if (newRows.length) newRows[0].scrollIntoView({ block: "nearest", behavior: "smooth" })
     this.setStatus(newRows.length === 1 ? "1 row pasted" : `${newRows.length} rows pasted`, newRows)
     this.updateStatusCount()
     this.validateTable()
-    this.saveForm()
+    this.saveForm({ clearSortIndicator: true })
   }
 
   getRowValues(tr) {
@@ -574,14 +1092,16 @@ export default class extends Controller {
     }
   }
 
+  // Row mutation operations (add/delete/duplicate/paste/reorder) keep names/indexes consistent.
   addRow(e) {
     if (e) e.preventDefault()
     if (!this.hasTemplateRowTarget) return
     const newRow = this.addRowWithValues(null)
+    this.clearHoverState()
     this.setStatus("1 row added", newRow ? [newRow] : null)
     this.updateStatusCount()
     this.validateTable()
-    this.saveForm()
+    this.saveForm({ clearSortIndicator: true })
   }
 
   addRowWithValues(values, insertBeforeRow) {
@@ -611,7 +1131,7 @@ export default class extends Controller {
 
   reindexRows() {
     this.dataRows.forEach((tr, i) => {
-      tr.querySelectorAll("td input.cell, td select.cell").forEach(el => {
+      tr.querySelectorAll("[name^='records[']").forEach(el => {
         if (el.name && el.name.startsWith("records[")) {
           el.name = el.name.replace(/^records\[\d+\]/, `records[${i}]`)
         }
@@ -619,6 +1139,7 @@ export default class extends Controller {
     })
   }
 
+  // Drag and drop row reordering.
   handleTbodyMouseMove(e) {
     const row = e.target.closest("tr.tag-data-row")
     const dataRow = row && !row.classList.contains("tag-row-template") ? row : null
@@ -704,32 +1225,15 @@ export default class extends Controller {
     moving.forEach(r => r.remove())
     moving.forEach(r => tbody.insertBefore(r, ref))
     this.reindexRows()
+    this.clearHoverState()
     this.dataRows.forEach(r => r.classList.remove("drop-before", "drop-after"))
     if (moving.length === 1 && this.draggedRowWasUnselected) {
       this.dataRows.forEach(r => r.classList.remove("row-selected"))
       moving[0].classList.add("row-selected")
     }
     this.setStatus(moving.length === 1 ? "1 row moved" : `${moving.length} rows moved`, moving)
-    this.clearSortIndicator()
     this.validateTable()
-    this.saveForm()
-    }
-
-  clearSortIndicator() {
-    const table = this.tbodyTarget && this.tbodyTarget.closest("table")
-    if (!table) return
-    table.querySelectorAll("th.sort-asc").forEach(th => th.classList.remove("sort-asc"))
-    const url = new URL(window.location.href)
-    if (url.searchParams.has("sort") || url.searchParams.has("direction")) {
-      url.searchParams.delete("sort")
-      url.searchParams.delete("direction")
-      history.replaceState({}, "", url.toString())
-    }
-    const base = window.location.pathname
-    table.querySelectorAll("thead th a[href]").forEach(a => {
-      const col = a.textContent.trim()
-      if (col) a.href = `${base}?sort=${encodeURIComponent(col)}&direction=asc`
-    })
+    this.saveForm({ clearSortIndicator: true })
   }
 
   handleDragEnd(e) {
