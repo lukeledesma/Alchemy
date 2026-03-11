@@ -562,6 +562,7 @@ input.connection-inline {
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface);
+  margin-bottom: var(--popup-padding-px, 0px);
 }
 .tag-table { width: 100%; border-collapse: collapse; min-width: 960px; font-size: 0.875rem; }
 .tag-table th, .tag-table td { padding: 0.4rem 0.6rem; border: 1px solid var(--border); text-align: left; vertical-align: middle; }

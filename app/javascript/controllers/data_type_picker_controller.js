@@ -8,7 +8,8 @@ export default class extends Controller {
     this.boundClose = this.close.bind(this)
     this.boundFocusInClose = this.handleFocusInClose.bind(this)
     this.boundKeydown = this.handleKeydown.bind(this)
-    this.boundViewportUpdate = this.updatePopupPosition.bind(this)
+    this.boundScrollUpdate = this.updatePopupPosition.bind(this)
+    this.boundResizeUpdate = this.handleViewportResize.bind(this)
     const el = document.getElementById("data-type-picker-type-options")
     try {
       this.typeOptions = el && el.textContent ? JSON.parse(el.textContent) : []
@@ -20,6 +21,8 @@ export default class extends Controller {
       const key = `${this.normalizeCode(opt.datatype)}_${this.normalizeCode(opt.encode)}`
       if (!this.reverseMap[key]) this.reverseMap[key] = opt.label
     })
+    this.currentPaddingPx = 0
+    this.setPopupPaddingPx(0)
   }
 
   normalizeCode(code) {
@@ -48,6 +51,7 @@ export default class extends Controller {
     this.popupTarget.classList.remove("hidden")
     this.popupTarget.setAttribute("aria-hidden", "false")
     this.positionPopup(trigger)
+    this.applyBottomPaddingForTrigger(trigger)
     this.setSelectByNormalizedCode(this.datatypeSelectTarget, dt)
     this.setSelectByNormalizedCode(this.encodeSelectTarget, enc)
     const key = `${dt}_${enc}`
@@ -64,11 +68,14 @@ export default class extends Controller {
     if (e && e.type === "click") {
       if (this.popupTarget.contains(e.target)) return
       if (this.currentTrigger && this.currentTrigger.contains(e.target)) return
+      // Switching directly to another data type trigger should not tear down padding first.
+      if (e.target && e.target.closest && e.target.closest(".data-type-trigger")) return
     }
     if (this.currentTrigger) {
       this.currentTrigger.blur()
     }
     this.currentTrigger = null
+    this.setPopupPaddingPx(0)
     this.popupTarget.classList.add("hidden")
     this.popupTarget.setAttribute("aria-hidden", "true")
     this.unbindViewportTracking()
@@ -77,22 +84,67 @@ export default class extends Controller {
     document.removeEventListener("keydown", this.boundKeydown)
   }
 
+  tableContainer() {
+    return this.element.querySelector(".table-container")
+  }
+
+  setPopupPaddingPx(px) {
+    const container = this.tableContainer()
+    if (!container) return
+    const nextPx = Math.max(0, Math.round(px))
+    if (this.currentPaddingPx === nextPx) return
+    this.currentPaddingPx = nextPx
+    container.style.setProperty("--popup-padding-px", `${nextPx}px`)
+  }
+
+  applyBottomPaddingForTrigger(trigger) {
+    const row = trigger.closest("tr.tag-data-row")
+    const tbody = row ? row.parentElement : null
+    if (!row || !tbody) {
+      this.setPopupPaddingPx(0)
+      return
+    }
+
+    const rows = Array.from(tbody.querySelectorAll("tr.tag-data-row:not(.tag-row-template)"))
+      .filter((el) => el.style.display !== "none")
+    const index = rows.indexOf(row)
+    if (index < 0) {
+      this.setPopupPaddingPx(0)
+      return
+    }
+
+    const rowsFromBottom = rows.length - 1 - index
+    if (rowsFromBottom > 3) {
+      this.setPopupPaddingPx(0)
+      return
+    }
+
+    // Use the current 4th-row padding as baseline, then add one row-height per step downward.
+    const popupHeight = this.popupTarget.getBoundingClientRect().height || 160
+    const rowHeight = row.getBoundingClientRect().height || 44
+    const bottomGap = 19
+    const currentFourthRowPadding = Math.max(bottomGap, (popupHeight * 0.5) + bottomGap - (3 * rowHeight))
+    const incrementsFromFourth = 3 - rowsFromBottom
+    const steppedPadding = currentFourthRowPadding + (incrementsFromFourth * rowHeight)
+    this.setPopupPaddingPx(steppedPadding)
+  }
+
   // Keep popup anchored while viewport/zoom/scroll changes.
   bindViewportTracking() {
-    window.addEventListener("resize", this.boundViewportUpdate)
-    document.addEventListener("scroll", this.boundViewportUpdate, true)
+    window.addEventListener("resize", this.boundResizeUpdate)
+    document.addEventListener("scroll", this.boundScrollUpdate, true)
     if (window.visualViewport) {
-      window.visualViewport.addEventListener("resize", this.boundViewportUpdate)
-      window.visualViewport.addEventListener("scroll", this.boundViewportUpdate)
+      window.visualViewport.addEventListener("resize", this.boundResizeUpdate)
+      window.visualViewport.addEventListener("scroll", this.boundScrollUpdate)
     }
   }
 
   unbindViewportTracking() {
-    window.removeEventListener("resize", this.boundViewportUpdate)
-    document.removeEventListener("scroll", this.boundViewportUpdate, true)
+    window.removeEventListener("resize", this.boundResizeUpdate)
+    document.removeEventListener("scroll", this.boundScrollUpdate, true)
     if (window.visualViewport) {
-      window.visualViewport.removeEventListener("resize", this.boundViewportUpdate)
-      window.visualViewport.removeEventListener("scroll", this.boundViewportUpdate)
+      window.visualViewport.removeEventListener("resize", this.boundResizeUpdate)
+      window.visualViewport.removeEventListener("scroll", this.boundScrollUpdate)
     }
   }
 
@@ -101,11 +153,18 @@ export default class extends Controller {
     this.positionPopup(this.currentTrigger)
   }
 
+  handleViewportResize() {
+    if (!this.currentTrigger || this.popupTarget.classList.contains("hidden")) return
+    this.positionPopup(this.currentTrigger)
+    this.applyBottomPaddingForTrigger(this.currentTrigger)
+  }
+
   // Keyboard interactions.
   handleFocusInClose(e) {
     if (this.popupTarget.classList.contains("hidden")) return
     if (this.popupTarget.contains(e.target)) return
     if (this.currentTrigger && this.currentTrigger.contains(e.target)) return
+    if (e.target && e.target.closest && e.target.closest(".data-type-trigger")) return
     this.close()
   }
 
@@ -180,8 +239,8 @@ export default class extends Controller {
 
   // UI rendering helpers.
   buildTooltip(datatypeLabel, encodeLabel, datatypeCode, encodeCode) {
-    const dt = (datatypeLabel || "").trim() || "Unknown"
-    const enc = (encodeLabel || "").trim() || "Unknown"
+    const dt = this.stripLeadingCode(datatypeLabel) || "Unknown"
+    const enc = this.stripLeadingCode(encodeLabel) || "Unknown"
     const dtCode = this.normalizeCode(datatypeCode)
     const encCode = this.normalizeCode(encodeCode)
     return `Datatype - ${dtCode}: ${dt}\nEncode - ${encCode}: ${enc}`
@@ -199,7 +258,7 @@ export default class extends Controller {
     const encCode = this.normalizeCode(encodeCode)
     const dtText = this.stripLeadingCode(datatypeLabel) || "Unknown"
     const encText = this.stripLeadingCode(encodeLabel) || "Unknown"
-    return `Datatype - ${dtCode}:${dtText} & Encode - ${encCode}:${encText}`
+    return `Datatype - ${dtCode}: ${dtText} & Encode - ${encCode}: ${encText}`
   }
 
   stripLeadingCode(label) {

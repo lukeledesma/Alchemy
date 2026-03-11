@@ -107,7 +107,16 @@ class DocumentsController < ApplicationController
     meta = extract_metadata_from_path(xml_path, display_filename)
 
     parent_folder = params[:parent_id].present? ? parent_folder_from_params : nil
-    if params[:parent_id].present? && parent_folder.nil?
+    if params[:parent_id].blank?
+      if request.xhr?
+        return render plain: "Please choose a destination folder.", status: :unprocessable_entity
+      end
+
+      flash[:alert] = "Please choose a destination folder."
+      return redirect_to root_path
+    end
+
+    if parent_folder.nil?
       if request.xhr?
         return render plain: "Selected folder was not found.", status: :unprocessable_entity
       end
@@ -116,7 +125,7 @@ class DocumentsController < ApplicationController
       return redirect_to root_path
     end
 
-    target_folder = parent_folder || ensure_imported_folder!
+    target_folder = parent_folder
     folder_name = folder_name_for(target_folder)
     resolved_name = DocumentStorageSync.resolve_import_filename(display_filename, folder_name)
     @document = Document.new(
@@ -135,7 +144,7 @@ class DocumentsController < ApplicationController
         render partial: "organizer"
       else
         flash[:created_file_id] = @document.id
-        flash[:created_folder_name] = target_folder.metadata_filename if parent_folder.nil?
+        flash[:created_folder_name] = target_folder.metadata_filename
         redirect_to root_path
       end
     else
@@ -465,23 +474,6 @@ class DocumentsController < ApplicationController
     "#{base} #{expected}"
   end
 
-  def ensure_imported_folder!
-    folder = Document.folders.find_by(storage_path: IMPORTED_FOLDER_NAME) ||
-      Document.folders.find_by(metadata_filename: IMPORTED_FOLDER_NAME)
-
-    unless folder
-      folder = Document.create!(
-        is_folder: true,
-        metadata_filename: IMPORTED_FOLDER_NAME,
-        storage_path: IMPORTED_FOLDER_NAME,
-        records: []
-      )
-    end
-
-    DocumentStorageSync.ensure_folder_exists!(folder)
-    folder
-  end
-
   def filesystem_folder_names
     scan_filesystem_entries[:folders]
   end
@@ -546,6 +538,7 @@ class DocumentsController < ApplicationController
     Rails.logger.info("[OrganizerScan] files=#{files.inspect}")
 
     folder_docs_by_name = Document.folders.index_by { |folder| folder_name_for(folder) }
+    folders = folders.reject { |name| name == IMPORTED_FOLDER_NAME && !folder_docs_by_name.key?(name) }
     file_docs_by_path = Document.files.where.not(storage_path: [ nil, "" ]).index_by(&:storage_path)
 
     @browser_folders = folders.map do |folder_name|
@@ -638,7 +631,7 @@ class DocumentsController < ApplicationController
   def resolve_import_path(file)
     path = file.tempfile.path
     name = file.original_filename.to_s
-    if name.end_with?(".tar", ".xml.tar")
+    if name.match?(/\A.+\.(?:xml\.)?tar(?:\.gz)?\z/i)
       Dir.mktmpdir("alchemy_tar") do |dir|
         success = system("tar", "-xf", path, "-C", dir, out: File::NULL, err: File::NULL)
         unless success
@@ -647,7 +640,7 @@ class DocumentsController < ApplicationController
         xml_path = Dir.glob(File.join(dir, "**", "*.xml")).first
         xml_path ||= Dir.glob(File.join(dir, "**", "*")).find { |f| File.file?(f) }
         next [ nil, name ] unless xml_path
-        display = name.sub(/\.tar\z/i, "")
+        display = name.sub(/\.(?:xml\.)?tar(?:\.gz)?\z/i, ".xml")
         display = File.basename(xml_path) if display.blank?
         # Copy to a temp file so we can use it after the tar dir is removed
         tmp = Tempfile.new([ "alchemy_xml", ".xml" ])

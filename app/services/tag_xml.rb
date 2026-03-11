@@ -202,18 +202,17 @@ module TagXml
         end
         return [] if addresses.empty?
         addresses.sort!
-        pad = func_code == "01" ? 1 : 2
         clusters = []
         cluster_start = cluster_end = addresses[0]
         addresses[1..].each do |addr|
           if addr <= cluster_end + 1
             cluster_end = addr
           else
-            clusters << [ cluster_start, cluster_end + pad ]
+            clusters << [ cluster_start, cluster_end ]
             cluster_start = cluster_end = addr
           end
         end
-        clusters << [ cluster_start, cluster_end + pad ]
+        clusters << [ cluster_start, cluster_end ]
         chunk_end = {}
         clusters.each do |c_start, c_end|
           c_end = c_start if c_end < c_start
@@ -226,7 +225,7 @@ module TagXml
             chunk += 100
           end
         end
-        chunk_end.keys.sort.map { |chunk| [ chunk, chunk_end[chunk] - chunk + 1 ] }
+        chunk_end.keys.sort.map { |chunk| [ chunk, chunk_end[chunk] ] }
       end
     end
   end
@@ -311,14 +310,12 @@ module TagXml
         }
         words_sections = PreloadCalculator.calculate_sections(records, "03")
         bits_sections = PreloadCalculator.calculate_sections(records, "01")
-        # Preload names use address start and datalength (same as ADDRSTART/DATALENGTH in the block)
         find_section = lambda do |addr, func_code|
           sections = func_code == "03" ? words_sections : bits_sections
           prefix = func_code == "03" ? "Preload_Words" : "Preload_Bits"
-          sections.each do |start, len|
-            end_addr = start + len - 1
-            next unless addr >= start && addr <= end_addr
-            dlength = (func_code == "03") ? (start + len) : (start + len - 1)
+          sections.each do |start, last|
+            next unless addr >= start && addr <= last
+            dlength = preload_data_length(start, last, func_code)
             return "#{prefix}_#{start}_#{dlength}"
           end
           ""
@@ -328,13 +325,13 @@ module TagXml
         out << "<?xml version=\"1.11\" encoding=\"UTF-8\"?>\n"
         out << "<GLOBAL>\n  <XML>\n"
 
-        words_sections.each do |start, length|
-          name = "Preload_Words_#{start}_#{start + length}"
-          out << block_xml(name, preload_fields("Preload_Words", start, length, meta))
+        words_sections.each do |start, last|
+          name = "Preload_Words_#{start}_#{last}"
+          out << block_xml(name, preload_fields("Preload_Words", start, last, meta))
         end
-        bits_sections.each do |start, length|
-          name = "Preload_Bits_#{start}_#{start + length - 1}"
-          out << block_xml(name, preload_fields("Preload_Bits", start, length, meta))
+        bits_sections.each do |start, last|
+          name = "Preload_Bits_#{start}_#{last}"
+          out << block_xml(name, preload_fields("Preload_Bits", start, last, meta))
         end
 
         records.each do |record|
@@ -393,11 +390,9 @@ module TagXml
         ]
       end
 
-      def preload_fields(tag_prefix, start, length, meta)
+      def preload_fields(tag_prefix, start, last, meta)
         func_code = tag_prefix == "Preload_Words" ? '"03"' : '"01"'
-        # Bits: DATALENGTH = end index (tight). Words (holding registers): DATALENGTH = end + 1 for PLCs that use 2 for all tags
-        end_index = start + length - 1
-        dlength = (tag_prefix == "Preload_Words") ? (end_index + 1) : end_index
+        dlength = preload_data_length(start, last, func_code.delete('"'))
         [
           [ "TYPE", "\"#{meta[:protocol] || 'TCP'}\"" ], [ "DEVICEID", '"1"' ], [ "FUNCCODE", func_code ],
           [ "ADDRSTART", "\"#{start}\"" ], [ "DATALENGTH", "\"#{dlength}\"" ], [ "ALIAS", '"none"' ],
@@ -406,6 +401,11 @@ module TagXml
           [ "TRIGGER", '"none"' ], [ "PRELOAD", '"none"' ], [ "VERIFY", '"254"' ], [ "THRESHOLD", '"0"' ],
           [ "DATATYPE", '"103"' ], [ "ENCODE", '"255"' ], [ "EXPR", '"1.0"' ], [ "SUBSCRIBE", '"off"' ], [ "POLL", '"on"' ]
         ]
+      end
+
+      def preload_data_length(start, last, func_code)
+        span = [ last - start, 0 ].max
+        func_code == "03" ? (span + 1) : span
       end
 
       def block_xml(tag_name, fields)

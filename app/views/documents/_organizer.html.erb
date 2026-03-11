@@ -36,7 +36,7 @@
                 <% if folder %>
                   <%= form_with url: documents_path, method: :post, local: true, multipart: true, class: "home-import-form inline-action-form", data: { controller: "import-form", action: "submit->import-form#submit" } do |f| %>
                     <%= hidden_field_tag :parent_id, folder.id %>
-                    <%= file_field_tag :xml_file, accept: ".xml,.xml.tar,application/xml,text/xml,application/x-tar", class: "file-input-hidden", id: "folder_xml_file_#{folder.id}", data: { action: "change->import-form#submit" } %>
+                    <%= file_field_tag :xml_file, accept: ".xml,.xml.tar,.xml.tar.gz,application/xml,text/xml,application/x-tar,application/gzip", class: "file-input-hidden", id: "folder_xml_file_#{folder.id}", data: { action: "change->import-form#submit" } %>
                     <button type="button" class="btn btn-secondary btn-tiny action import-button" data-action="click->import-form#chooseFile">Import</button>
                   <% end %>
                   <%= button_to "New", create_file_document_path(folder), method: :post, class: "btn btn-secondary btn-tiny action new-button", form_class: "inline-action-form" %>

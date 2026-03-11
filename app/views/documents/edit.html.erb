@@ -80,10 +80,10 @@
                   <% when :data_type %>
                     <% raw_dt = row["_raw_datatype"].to_s.strip %>
                     <% raw_enc = row["_raw_encode"].to_s.strip %>
-                    <% dt_tip = TagXml::DataTypeMapper.uticor_label(raw_dt).presence || "Unknown" %>
-                    <% enc_tip = TagXml::DataTypeMapper.uticor_label(raw_enc).presence || "Unknown" %>
-                    <% dt_code_tip = raw_dt.presence || "0" %>
-                    <% enc_code_tip = raw_enc.presence || "255" %>
+                    <% dt_code_tip = TagXml::DataTypeMapper.normalize_code(raw_dt.presence || "0") %>
+                    <% enc_code_tip = TagXml::DataTypeMapper.normalize_code(raw_enc.presence || "255") %>
+                    <% dt_tip = TagXml::DataTypeMapper.uticor_label(dt_code_tip).presence || "Unknown" %>
+                    <% enc_tip = TagXml::DataTypeMapper.uticor_label(enc_code_tip).presence || "Unknown" %>
                     <% uticor_tip = "Datatype - #{dt_code_tip}: #{dt_tip}\nEncode - #{enc_code_tip}: #{enc_tip}" %>
                     <%= hidden_field_tag "records[#{idx}][Data Type]", val, class: "cell", data: { workspace_lock_target: "editable" }, disabled: true %>
                     <%= hidden_field_tag "records[#{idx}][_raw_datatype]", raw_dt.presence || "0", id: nil %>
