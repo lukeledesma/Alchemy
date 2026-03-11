@@ -115,7 +115,6 @@ a:hover { text-decoration: underline; }
     filter: drop-shadow(0 0 16px rgba(255, 255, 255, 0)) drop-shadow(0 0 32px rgba(255, 255, 255, 0));
   }
 }
-.app-title sup { font-size: 0.5em; top: -0.4em; font-weight: 600; opacity: 0.9; }
 .tagline { color: var(--muted); font-size: 0.95rem; }
 .home-actions { display: flex; justify-content: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 2rem; }
 .organizer-header {
