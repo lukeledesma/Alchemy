@@ -15,6 +15,7 @@ class Document < ApplicationRecord
   validate :folder_parent_must_be_blank
   validate :metadata_filename_cannot_start_with_dot
   before_validation :set_default_metadata, on: :create
+  before_validation :normalize_reset_defaults
   before_validation :normalize_folder_defaults
 
   def metadata
@@ -49,6 +50,14 @@ class Document < ApplicationRecord
   end
 
   private
+
+  def normalize_reset_defaults
+    self.reset_mode = (reset_mode.presence || "none").to_s
+    return unless reset_days.nil?
+
+    reset_days_column = self.class.columns_hash["reset_days"]
+    self.reset_days = reset_days_column&.array ? [] : 0
+  end
 
   def set_default_metadata
     return if folder?
