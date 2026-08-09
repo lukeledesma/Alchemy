@@ -1,0 +1,93 @@
+UTICOR DATATYPE/ENCODE DICTIONARY
+0	Signed
+1	Unsigned
+4	32 Bit signed, Big-endian (AB CD)
+5	32 Bit signed, Little-endian (DC BA)
+6	32 Bit signed, Big-endian byte swap (BA DC)
+7	32 Bit signed, Little-endian byte swap (CD AB)
+8	32 Bit Unsigned, Big-endian (AB CD)
+9	32 Bit Unsigned, Little-endian (DC BA)
+16	32 Bit Unsigned, Big-endian byte swap (BA DC)
+17	32 Bit Unsigned, Little-endian byte swap (CD AB)
+32	32 Bit Float, Big-endian (AB CD)
+33	32 Bit Float, Little-endian (DC BA)
+34	32 Bit Float, Big-endian byte swap (BA DC)
+35	32 Bit Float, Little-endian byte swap (CD AB)
+100	Raw
+101	Integer
+102	Float SP (AB CD) (Legacy)
+103	Dummy
+104	Float (CD AB) (Legacy)
+105	String
+106	HEX
+107	Boolean
+114	Double
+255	Ignore
+
+UTICOR VERIFY DICTIONARY
+0	Always
+1	Different
+2	Equal
+3	Large
+4	Large Equal
+5	Small
+6	Small Equal
+7	Changed
+253	Never
+254	No Publish
+
+UTICOR FUNCODE DICTIONARY
+01	Coil Status
+02	Input Status
+03	Holding Register
+04	Input Register
+05	Write Single Coil
+06	Write Single Register
+15	Write Multiple Coils
+16	Write Multiple Registers
+
+VALID PLC DATATYPES
+Datatype:107 + Encode:255 = BOOL
+Datatype:107 + Encode:255 = BOOL (Bit of INT)
+Datatype:0 + Encode:255 = INT
+Datatype:1 + Encode:255 = UINT
+Datatype:0 + Encode:102 = INT (Scaled)
+Datatype:1 + Encode:102 = UINT (Scaled)
+Datatype:4 + Encode:32 = DINT (Scaled)
+Datatype:7 + Encode:32 = DINT (Scaled, w/Byte Swap)
+Datatype:8 + Encode:32 = UDINT (Scaled)
+Datatype:17 + Encode:32 = UDINT (Scaled, w/Byte Swap)
+Datatype:4 + Encode:255 = DINT
+Datatype:7 + Encode:4 = DINT (w/Byte Swap)
+Datatype:8 + Encode:255 = UDINT
+Datatype:17 + Encode:8 = UDINT (w/Byte Swap)
+Datatype:0032 + Encode:255 = REAL
+Datatype:0035 + Encode:32 = REAL (w/Byte Swap)
+
+NEW PLC DATATYPE EXCEPTIONS
+Datatype:107 + Encode:107 = BOOL
+Datatype:107 + Encode:107 = BOOL (Bit of INT)
+Datatype:0 + Encode:0 = INT
+Datatype:0 + Encode 101 = INT
+Datatype:1 + Encode:1 = UINT
+Datatype:101 + Encode:101 = INT
+Datatype:0 + Encode:107 = BOOL
+Datatype:104 + Encode:255 = REAL (w/Byte Swap)
+Datatype:7 + Encode:102 = DINT (Scaled, w/Byte Swap)
+Datatype:0 + Encode:104 = INT (Scaled)
+Datatype:35 + Encode:8 = REAL (w/Byte Swap)
+
+BOOL TAG TYPE
+[COILS STATUS] = BOOL
+[HOLDING REGISTER] = BOOL (Bit of INT)
+
+PRELOAD DEFINITION (IF ANY OF FOLLOWING APPLY ITS A PRELOAD)
+- Is referenced as a preload by other tags
+- Datatype:103 Dummy
+- Verify:254 No Publish
+
+NOTE TO SELF (NOT AUTOMATED)
+When a repair has multiple plausible mappings, investigate whether preserving a
+two-register datalength is safer than choosing a one-register mapping. Do not
+apply this preference automatically until field examples confirm the intended
+values and scaling behavior.

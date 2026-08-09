@@ -1,0 +1,37 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:kit="using:Alchemy.Kit"
+             x:Class="Alchemy.Kit.ActionRow"
+             HorizontalAlignment="Stretch">
+  <Grid>
+    <Button x:Name="RowButton"
+            Classes="panel-nav"
+            HorizontalAlignment="Stretch"
+            Click="RowButtonClicked">
+      <Grid ColumnDefinitions="{x:Static kit:UiMetrics.IconTextColumns}"
+            IsHitTestVisible="False">
+        <ContentPresenter x:Name="IconPresenter"
+                          Width="{x:Static kit:UiMetrics.RowIconSize}"
+                          Height="{x:Static kit:UiMetrics.RowIconSize}"
+                          HorizontalAlignment="Left"
+                          VerticalAlignment="Center" />
+        <TextBlock x:Name="TitleText"
+                   Grid.Column="1"
+                   Classes="press-label"
+                   FontSize="13"
+                   FontWeight="Normal"
+                   VerticalAlignment="Center" />
+      </Grid>
+    </Button>
+    <Rectangle x:Name="DropOutline"
+               IsVisible="False"
+               Margin="0,2"
+               RadiusX="7"
+               RadiusY="7"
+               Stroke="{DynamicResource AlchemyDropOutlineBrush}"
+               StrokeThickness="1"
+               StrokeDashArray="4,3"
+               Fill="Transparent"
+               IsHitTestVisible="False" />
+  </Grid>
+</UserControl>

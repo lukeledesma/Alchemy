@@ -1,0 +1,7 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Alchemy/Alchemy.csproj" />
+    <Project Path="src/Alchemy.Core/Alchemy.Core.csproj" />
+    <Project Path="src/Alchemy.Kit/Alchemy.Kit.csproj" />
+  </Folder>
+</Solution>

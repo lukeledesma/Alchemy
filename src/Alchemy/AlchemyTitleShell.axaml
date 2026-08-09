@@ -1,0 +1,187 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:chrome="using:Avalonia.Controls.Chrome"
+             xmlns:kit="using:Alchemy.Kit"
+             x:Class="Alchemy.AlchemyTitleShell"
+             Height="46">
+  <Border Background="{DynamicResource AlchemyBaseBrush}"
+          PointerPressed="TitleBarPointerPressed"
+          chrome:WindowDecorationProperties.ElementRole="TitleBar">
+      <Grid x:Name="TitleShellGrid"
+      ColumnDefinitions="86,Auto,*,Auto">
+        <Border x:Name="LeftInsetSpacer"
+          Grid.Column="0"
+              Background="Transparent" />
+
+      <StackPanel Grid.Column="1"
+                  Orientation="Horizontal"
+                  VerticalAlignment="Center"
+                  Spacing="6">
+        <kit:IconButton x:Name="PanelToggleButton"
+                           IsPinned="False"
+                           Focusable="False"
+                           IsTabStop="False"
+                           ToolTip.Tip="Toggle side panel"
+                           Invoked="PanelToggleClicked"
+                           PointerPressed="TitleControlPointerPressed">
+          <kit:IconButton.Icon>
+            <Grid Width="17" Height="17">
+              <Grid x:Name="PanelIcons">
+                <Canvas x:Name="PanelClosedIcon"
+                        IsVisible="True">
+                  <Viewbox Width="17" Height="17">
+                    <Canvas Width="24" Height="24">
+                      <Path Data="M3.75 7.25a3.5 3.5 0 0 1 3.5-3.5h9.5a3.5 3.5 0 0 1 3.5 3.5v9.5a3.5 3.5 0 0 1-3.5 3.5h-9.5a3.5 3.5 0 0 1-3.5-3.5zm5.797-3.5v16.5"
+                            Fill="Transparent"
+                            Stroke="{DynamicResource AlchemyGlyphBrush}"
+                            StrokeThickness="1.5"
+                            StrokeLineCap="Round"
+                            StrokeJoin="Round" />
+                    </Canvas>
+                  </Viewbox>
+                </Canvas>
+                <Canvas x:Name="PanelOpenIcon"
+                        Width="17"
+                        Height="17"
+                        IsVisible="False">
+                  <Viewbox Width="17" Height="17">
+                    <Canvas Width="24" Height="24">
+                      <Path Data="M7.25 3.75a3.5 3.5 0 0 0-3.5 3.5v9.5a3.5 3.5 0 0 0 3.5 3.5h2.297V3.75z"
+                            Fill="{DynamicResource AlchemyGlyphBrush}" />
+                      <Path Data="M9.547 3.75H7.25a3.5 3.5 0 0 0-3.5 3.5v9.5a3.5 3.5 0 0 0 3.5 3.5h2.297m0-16.5h7.203a3.5 3.5 0 0 1 3.5 3.5v9.5a3.5 3.5 0 0 1-3.5 3.5H9.547m0-16.5v16.5"
+                            Fill="Transparent"
+                            Stroke="{DynamicResource AlchemyGlyphBrush}"
+                            StrokeThickness="1.5"
+                            StrokeLineCap="Round"
+                            StrokeJoin="Round" />
+                    </Canvas>
+                  </Viewbox>
+                </Canvas>
+              </Grid>
+              <Viewbox x:Name="SettingsBackIcon"
+                       Width="17"
+                       Height="17"
+                       IsVisible="False">
+                <Canvas Width="960" Height="960">
+                  <Path Data="M313 520 537 744 480 800 160 480 480 160 537 216 313 440H800V520H313Z"
+                        Fill="{DynamicResource AlchemyGlyphBrush}" />
+                </Canvas>
+              </Viewbox>
+            </Grid>
+          </kit:IconButton.Icon>
+        </kit:IconButton>
+
+        <kit:IconButton x:Name="BackButton"
+                           IsVisible="False"
+                           Focusable="False"
+                           IsTabStop="False"
+                           ToolTip.Tip="Back"
+                           Invoked="BackClicked"
+                           PointerPressed="TitleControlPointerPressed"
+                           PointerEntered="BackHoverStartedPointerEntered"
+                           PointerExited="BackHoverEndedPointerExited">
+          <kit:IconButton.Icon>
+            <Viewbox Width="17"
+                     Height="17">
+              <Canvas Width="960" Height="960">
+                <Path Data="M313 520 537 744 480 800 160 480 480 160 537 216 313 440H800V520H313Z"
+                      Fill="{DynamicResource AlchemyGlyphBrush}" />
+              </Canvas>
+            </Viewbox>
+          </kit:IconButton.Icon>
+        </kit:IconButton>
+
+        <kit:IconButton x:Name="ForwardButton"
+                           IsVisible="False"
+                           Focusable="False"
+                           IsTabStop="False"
+                           ToolTip.Tip="Forward"
+                           Invoked="ForwardClicked"
+                           PointerPressed="TitleControlPointerPressed">
+          <kit:IconButton.Icon>
+            <Viewbox Width="17"
+                     Height="17">
+              <Canvas Width="960" Height="960">
+                <Path Data="M647 520H160V440h487L423 216l57-56 320 320-320 320-57-56 224-224Z"
+                      Fill="{DynamicResource AlchemyGlyphBrush}" />
+              </Canvas>
+            </Viewbox>
+          </kit:IconButton.Icon>
+        </kit:IconButton>
+
+        <Border x:Name="LeftControlsDivider"
+          Width="1"
+                Height="15"
+          Margin="0,0,0,0"
+                Background="{DynamicResource AlchemyDividerBrush}" />
+      </StackPanel>
+
+      <StackPanel x:Name="TitleContentPanel"
+          Grid.Column="2"
+                  Margin="12,0,0,0"
+                  Orientation="Horizontal"
+                  Spacing="6"
+                  HorizontalAlignment="Left"
+                  VerticalAlignment="Center">
+        <TextBlock x:Name="TitleTextBlock"
+                   Text="Untitled"
+                   Foreground="{DynamicResource AlchemyTextPrimaryBrush}"
+                   FontSize="15"
+                   FontWeight="SemiBold"
+                   RenderTransform="translate(0px, 1px)" />
+        <StackPanel x:Name="UnsavedStatusPanel"
+                    IsVisible="False"
+                    Orientation="Horizontal"
+                    Spacing="5"
+                    VerticalAlignment="Center">
+          <TextBlock Text="•"
+                     Foreground="{DynamicResource AlchemyTextPrimaryBrush}"
+                     FontSize="13"
+                     VerticalAlignment="Center"
+                     RenderTransform="translate(0px, 1px)" />
+          <TextBlock Text="Unsaved changes"
+                     Foreground="{DynamicResource AlchemyMutedBrush}"
+                     FontSize="11"
+                     VerticalAlignment="Center"
+                     RenderTransform="translate(0px, 1px)" />
+        </StackPanel>
+      </StackPanel>
+
+      <StackPanel x:Name="RightTitleControls"
+                  Grid.Column="3"
+                  Margin="0,0,12,0"
+                  Orientation="Horizontal"
+                  HorizontalAlignment="Right"
+                  VerticalAlignment="Center"
+                  Spacing="4">
+        <kit:IconButton x:Name="IssuesButton"
+                           Focusable="False"
+                           IsTabStop="False"
+                           ToolTip.Tip="Show issues only"
+                           Invoked="IssuesButtonClicked"
+                           PointerPressed="TitleControlPointerPressed">
+          <kit:IconButton.Icon>
+            <Grid Width="14" Height="14">
+              <PathIcon x:Name="IssuesWarningIcon"
+                        Data="M480-120q-17 0-28.5-11.5T440-160q0-17 11.5-28.5T480-200q17 0 28.5 11.5T520-160q0 17-11.5 28.5T480-120Zm-40-160v-400h80v400h-80Zm40-520L120-160h720L480-800Zm0 164L258-240h444L480-636Z"
+                        Width="14"
+                        Height="14"
+                        Foreground="{DynamicResource AlchemyTableAddressConflictBrush}" />
+              <PathIcon x:Name="IssuesCleanIcon"
+                        IsVisible="False"
+                        Data="M382-240 154-468l57-57 171 171 367-367 57 57-424 424Z"
+                        Width="14"
+                        Height="14"
+                        Foreground="#62B873" />
+            </Grid>
+          </kit:IconButton.Icon>
+        </kit:IconButton>
+      </StackPanel>
+
+      <Border Grid.ColumnSpan="4"
+              Height="1"
+              VerticalAlignment="Bottom"
+              Background="{DynamicResource AlchemyDividerBrush}" />
+    </Grid>
+  </Border>
+</UserControl>

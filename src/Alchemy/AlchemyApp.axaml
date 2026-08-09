@@ -1,0 +1,99 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Alchemy.AlchemyApp"
+             Name="Alchemy"
+             RequestedThemeVariant="Default">
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="AlchemyBaseBrush" Color="#171717" />
+          <SolidColorBrush x:Key="AlchemyPanelBrush" Color="#1A1A1A" />
+          <SolidColorBrush x:Key="AlchemyCardBrush" Color="#202020" />
+          <SolidColorBrush x:Key="AlchemyRowHoverBrush" Color="#2D2D2D" />
+          <SolidColorBrush x:Key="AlchemyRowSelectedBrush" Color="#303030" />
+          <SolidColorBrush x:Key="AlchemyIconSurfaceBrush" Color="#2A2A2A" />
+          <SolidColorBrush x:Key="AlchemyMutedBrush" Color="#8C8C8C" />
+          <SolidColorBrush x:Key="AlchemyGlyphBrush" Color="#B5B5B5" />
+          <SolidColorBrush x:Key="AlchemyBorderBrush" Color="#353535" />
+          <SolidColorBrush x:Key="AlchemyCardBorderBrush" Color="#404040" />
+          <SolidColorBrush x:Key="AlchemyTextPrimaryBrush" Color="#E3E3E3" />
+          <SolidColorBrush x:Key="AlchemyIconPrimaryBrush" Color="#B5B5B5" />
+          <SolidColorBrush x:Key="AlchemyIconSecondaryBrush" Color="#8C8C8C" />
+          <SolidColorBrush x:Key="AlchemySurfaceInteractiveBrush" Color="#2D2D2D" />
+          <SolidColorBrush x:Key="AlchemySurfaceSelectedBrush" Color="#303030" />
+          <SolidColorBrush x:Key="AlchemyDividerBrush" Color="#353535" />
+          <SolidColorBrush x:Key="AlchemyDangerBrush" Color="#D85C5C" />
+          <SolidColorBrush x:Key="AlchemyFocusBrush" Color="#6B92A8" />
+          <SolidColorBrush x:Key="AlchemySelectionBrush" Color="#647E96" />
+          <SolidColorBrush x:Key="AlchemySelectionForegroundBrush" Color="#F2F2F2" />
+          <SolidColorBrush x:Key="AlchemyDropOutlineBrush" Color="#6B92A8" />
+          <SolidColorBrush x:Key="AlchemyTableRowSelectedBrush" Color="#2B4D6D" />
+          <SolidColorBrush x:Key="AlchemyConnectionShellBrush" Color="#1A1A1A" />
+          <SolidColorBrush x:Key="AlchemyConnectionShellBorderBrush" Color="#353535" />
+          <SolidColorBrush x:Key="AlchemyConnectionSummaryTextBrush" Color="#999999" />
+          <SolidColorBrush x:Key="AlchemyTableRowConflictBrush" Color="#3AB73E3E" />
+          <SolidColorBrush x:Key="AlchemyTableRowZebraBrush" Color="#16000000" />
+          <SolidColorBrush x:Key="AlchemyTableDatatypeExceptionBrush" Color="#4EA1FF" />
+          <SolidColorBrush x:Key="AlchemyTableDatatypeMismatchBrush" Color="#E06666" />
+          <SolidColorBrush x:Key="AlchemyTableDatatypeUnknownBrush" Color="#D9A441" />
+          <SolidColorBrush x:Key="AlchemyTableAddressConflictBrush" Color="#E06666" />
+          <SolidColorBrush x:Key="AlchemyTableScalingWarningBrush" Color="#9B7BFF" />
+          <SolidColorBrush x:Key="AlchemyTablePreloadDividerFallbackBrush" Color="#2A2A2A" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="AlchemyBaseBrush" Color="#F4F4F4" />
+          <SolidColorBrush x:Key="AlchemyPanelBrush" Color="#EAEAEA" />
+          <SolidColorBrush x:Key="AlchemyCardBrush" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="AlchemyRowHoverBrush" Color="#E3E3E3" />
+          <SolidColorBrush x:Key="AlchemyRowSelectedBrush" Color="#DDDDDD" />
+          <SolidColorBrush x:Key="AlchemyIconSurfaceBrush" Color="#E3E3E3" />
+          <SolidColorBrush x:Key="AlchemyMutedBrush" Color="#666666" />
+          <SolidColorBrush x:Key="AlchemyGlyphBrush" Color="#474747" />
+          <SolidColorBrush x:Key="AlchemyBorderBrush" Color="#D2D2D2" />
+          <SolidColorBrush x:Key="AlchemyCardBorderBrush" Color="#D7D7D7" />
+          <SolidColorBrush x:Key="AlchemyTextPrimaryBrush" Color="#333333" />
+          <SolidColorBrush x:Key="AlchemyIconPrimaryBrush" Color="#474747" />
+          <SolidColorBrush x:Key="AlchemyIconSecondaryBrush" Color="#666666" />
+          <SolidColorBrush x:Key="AlchemySurfaceInteractiveBrush" Color="#E3E3E3" />
+          <SolidColorBrush x:Key="AlchemySurfaceSelectedBrush" Color="#DDDDDD" />
+          <SolidColorBrush x:Key="AlchemyDividerBrush" Color="#D2D2D2" />
+          <SolidColorBrush x:Key="AlchemyDangerBrush" Color="#B73E3E" />
+          <SolidColorBrush x:Key="AlchemyFocusBrush" Color="#527F99" />
+          <SolidColorBrush x:Key="AlchemySelectionBrush" Color="#9CB9CB" />
+          <SolidColorBrush x:Key="AlchemySelectionForegroundBrush" Color="#1F1F1F" />
+          <SolidColorBrush x:Key="AlchemyDropOutlineBrush" Color="#527F99" />
+          <SolidColorBrush x:Key="AlchemyTableRowSelectedBrush" Color="#DCECF8" />
+          <SolidColorBrush x:Key="AlchemyConnectionShellBrush" Color="#DCDCDC" />
+          <SolidColorBrush x:Key="AlchemyConnectionShellBorderBrush" Color="#A8A8A8" />
+          <SolidColorBrush x:Key="AlchemyConnectionSummaryTextBrush" Color="#2F2F2F" />
+          <SolidColorBrush x:Key="AlchemyTableRowConflictBrush" Color="#30D26464" />
+          <SolidColorBrush x:Key="AlchemyTableRowZebraBrush" Color="#10000000" />
+          <SolidColorBrush x:Key="AlchemyTableDatatypeExceptionBrush" Color="#2E6BD2" />
+          <SolidColorBrush x:Key="AlchemyTableDatatypeMismatchBrush" Color="#C43F3F" />
+          <SolidColorBrush x:Key="AlchemyTableDatatypeUnknownBrush" Color="#A8761A" />
+          <SolidColorBrush x:Key="AlchemyTableAddressConflictBrush" Color="#C43F3F" />
+          <SolidColorBrush x:Key="AlchemyTableScalingWarningBrush" Color="#7C59D9" />
+          <SolidColorBrush x:Key="AlchemyTablePreloadDividerFallbackBrush" Color="#C6C6C6" />
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+    </ResourceDictionary>
+  </Application.Resources>
+
+  <Application.Styles>
+    <FluentTheme />
+    <Style Selector="Window">
+      <Setter Property="FontFamily" Value="SF Pro Text" />
+    </Style>
+  </Application.Styles>
+
+  <NativeMenu.Menu>
+    <NativeMenu>
+      <NativeMenuItem Header="About Alchemy" />
+      <NativeMenuItemSeparator />
+      <NativeMenuItem Header="Settings…"
+                      Gesture="Meta+OemComma"
+                      Click="OpenSettings" />
+    </NativeMenu>
+  </NativeMenu.Menu>
+</Application>

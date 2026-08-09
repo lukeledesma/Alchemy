@@ -1,0 +1,10 @@
+.DS_Store
+.dotnet/
+.dotnet-home/
+.vs/
+.idea/
+.vscode/
+**/bin/
+**/obj/
+dist/
+build/

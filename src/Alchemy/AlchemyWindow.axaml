@@ -1,0 +1,1046 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="using:Alchemy"
+        xmlns:kit="using:Alchemy.Kit"
+        x:Class="Alchemy.AlchemyWindow"
+  DragDrop.AllowDrop="True"
+        Title="Untitled"
+        Width="760"
+        Height="460"
+        MinWidth="760"
+        MinHeight="460"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource AlchemyBaseBrush}"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaTitleBarHeightHint="46">
+  <Window.Styles>
+    <Style Selector="Button">
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="Button.tool-card">
+      <Setter Property="RenderTransform" Value="scale(1)" />
+      <Setter Property="FocusAdorner" Value="{x:Null}" />
+      <Setter Property="Background" Value="{DynamicResource AlchemyCardBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AlchemyPanelBrush}" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Height" Value="36" />
+      <Setter Property="Padding" Value="11,0" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}"
+                  CornerRadius="{TemplateBinding CornerRadius}"
+                  Padding="{TemplateBinding Padding}">
+            <ContentPresenter Content="{TemplateBinding Content}"
+                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                              VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="Button.tool-card:pointerover">
+      <Setter Property="Background" Value="{DynamicResource AlchemyRowHoverBrush}" />
+    </Style>
+    <Style Selector="Button.tool-card:pressed">
+      <Setter Property="Background" Value="{DynamicResource AlchemyRowHoverBrush}" />
+      <Setter Property="RenderTransform" Value="scale(1)" />
+    </Style>
+    <Style Selector="Button.tool-card:focus">
+      <Setter Property="Background" Value="{DynamicResource AlchemyPanelBrush}" />
+    </Style>
+    <Style Selector="Button.tool-card:focus:pointerover">
+      <Setter Property="Background" Value="{DynamicResource AlchemyRowHoverBrush}" />
+    </Style>
+    <Style Selector="Button.tool-card:focus:pressed">
+      <Setter Property="Background" Value="{DynamicResource AlchemyRowHoverBrush}" />
+    </Style>
+    <Style Selector="TextBlock.press-label">
+      <Setter Property="FontWeight" Value="Normal" />
+      <Setter Property="RenderTransform" Value="translate(0px, 1px)" />
+      <Setter Property="RenderTransformOrigin" Value="0%,50%" />
+      <Setter Property="Transitions">
+        <Transitions>
+          <TransformOperationsTransition Property="RenderTransform"
+                                         Duration="0:0:0.1" />
+        </Transitions>
+      </Setter>
+    </Style>
+    <Style Selector="Button.tool-card:pressed TextBlock.press-label">
+      <Setter Property="RenderTransform"
+              Value="translate(0px, 1px) scale(0.97)" />
+    </Style>
+    <Style Selector="Button.workspace-row">
+      <Setter Property="Height" Value="40" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Grid>
+            <Border Background="{TemplateBinding Background}"
+                    CornerRadius="{TemplateBinding CornerRadius}"
+                    Margin="0,2" />
+            <Rectangle x:Name="DropOutline"
+                       IsVisible="False"
+                       Margin="0,2"
+                       RadiusX="7"
+                       RadiusY="7"
+                       Stroke="{DynamicResource AlchemyDropOutlineBrush}"
+                       StrokeThickness="1"
+                       StrokeDashArray="4,3"
+                       IsHitTestVisible="False" />
+            <ContentPresenter Content="{TemplateBinding Content}"
+                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                              Margin="{TemplateBinding Padding}"
+                              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                              VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+          </Grid>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="Button.storage-tree-row">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="Button.storage-tree-row:focus">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="Button.storage-tree-row:pointerover">
+      <Setter Property="Background" Value="{DynamicResource AlchemyRowHoverBrush}" />
+    </Style>
+    <Style Selector="Button.storage-tree-row:focus:pointerover">
+      <Setter Property="Background" Value="{DynamicResource AlchemyRowHoverBrush}" />
+    </Style>
+    <Style Selector="Button.workspace-row.selected">
+      <Setter Property="Background" Value="{DynamicResource AlchemyRowSelectedBrush}" />
+    </Style>
+    <Style Selector="Button.workspace-row.selected:pointerover">
+      <Setter Property="Background" Value="{DynamicResource AlchemyRowSelectedBrush}" />
+    </Style>
+    <Style Selector="Button.storage-tree-row.drop-target">
+      <Setter Property="Background" Value="{DynamicResource AlchemyRowSelectedBrush}" />
+    </Style>
+    <Style Selector="Button.storage-tree-row.dragging">
+      <Setter Property="Opacity" Value="0.55" />
+    </Style>
+    <Style Selector="Grid.panel-row-content">
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+    <Style Selector="Button.storage-tree-row.empty-folder Grid.panel-row-content">
+      <Setter Property="Opacity" Value="0.4" />
+    </Style>
+    <Style Selector="Button.storage-tree-row.folder-only Grid.panel-row-content">
+      <Setter Property="Opacity" Value="0.6" />
+    </Style>
+    <Style Selector="Button.storage-tree-row.renaming Grid.panel-row-content">
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+    <Style Selector="Button.storage-tree-row.drop-target Grid.panel-row-content">
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+    <Style Selector="Button.storage-tree-row.drop-target /template/ Rectangle#DropOutline">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+    <Style Selector="PathIcon.standard-row-icon">
+      <Setter Property="Foreground" Value="{DynamicResource AlchemyMutedBrush}" />
+      <Setter Property="HorizontalAlignment" Value="Left" />
+    </Style>
+    <Style Selector="Button.storage-tree-row PathIcon.standard-row-icon">
+      <Setter Property="Foreground" Value="{DynamicResource AlchemyIconPrimaryBrush}" />
+    </Style>
+    <Style Selector="ContextMenu.storage-context">
+      <Setter Property="MinWidth" Value="142" />
+      <Setter Property="MaxWidth" Value="174" />
+      <Setter Property="FontSize" Value="11.5" />
+      <Setter Property="ItemsPanel">
+        <ItemsPanelTemplate>
+          <StackPanel Spacing="4" />
+        </ItemsPanelTemplate>
+      </Setter>
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{DynamicResource AlchemyPanelBrush}"
+                  BorderBrush="{DynamicResource AlchemyBorderBrush}"
+                  BorderThickness="1"
+                  CornerRadius="10"
+                  Padding="4">
+            <ItemsPresenter Name="PART_ItemsPresenter"
+                            ItemsPanel="{TemplateBinding ItemsPanel}" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="MenuItem.storage-context-item">
+      <Setter Property="Height" Value="24" />
+      <Setter Property="MinHeight" Value="24" />
+      <Setter Property="Padding" Value="7,0" />
+      <Setter Property="FontSize" Value="11.5" />
+      <Setter Property="Background" Value="{DynamicResource AlchemyPanelBrush}" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}"
+                  CornerRadius="6"
+                  Padding="{TemplateBinding Padding}">
+            <Grid ColumnDefinitions="14,*">
+              <ContentPresenter Content="{TemplateBinding Icon}"
+                                Width="12"
+                                Height="12"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Center" />
+              <ContentPresenter Grid.Column="1"
+                                Content="{TemplateBinding Header}"
+                                Margin="3,0,0,0"
+                                VerticalAlignment="Center" />
+            </Grid>
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="MenuItem.storage-context-item:pointerover">
+      <Setter Property="Background" Value="{DynamicResource AlchemyRowHoverBrush}" />
+    </Style>
+    <Style Selector="MenuItem.storage-context-item:pressed">
+      <Setter Property="Background" Value="{DynamicResource AlchemyRowHoverBrush}" />
+    </Style>
+    <Style Selector="ContextMenu.table-copy-context">
+      <Setter Property="Width" Value="74" />
+      <Setter Property="Height" Value="30" />
+      <Setter Property="MinHeight" Value="30" />
+      <Setter Property="MaxHeight" Value="30" />
+      <Setter Property="FontSize" Value="11.5" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{DynamicResource AlchemyPanelBrush}"
+                  BorderBrush="{DynamicResource AlchemyBorderBrush}"
+                  BorderThickness="1"
+                  CornerRadius="8"
+                  Padding="3">
+            <ItemsPresenter Name="PART_ItemsPresenter"
+                            VerticalAlignment="Center" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="ContextMenu.table-copy-context.edit-actions">
+      <Setter Property="Width" Value="96" />
+      <Setter Property="Height" Value="102" />
+      <Setter Property="MinHeight" Value="102" />
+      <Setter Property="MaxHeight" Value="102" />
+    </Style>
+    <Style Selector="MenuItem.table-copy-item">
+      <Setter Property="Height" Value="22" />
+      <Setter Property="MinHeight" Value="22" />
+      <Setter Property="Padding" Value="7,0" />
+      <Setter Property="Background" Value="{DynamicResource AlchemyPanelBrush}" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}"
+                  CornerRadius="5"
+                  Padding="{TemplateBinding Padding}">
+            <ContentPresenter Content="{TemplateBinding Header}"
+                              HorizontalAlignment="Stretch"
+                              VerticalAlignment="Center" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="MenuItem.table-copy-item:pointerover">
+      <Setter Property="Background" Value="{DynamicResource AlchemyRowHoverBrush}" />
+    </Style>
+    <Style Selector="MenuItem.table-copy-item:pressed">
+      <Setter Property="Background" Value="{DynamicResource AlchemySelectionBrush}" />
+    </Style>
+    <Style Selector="ContextMenu.edit-choice-menu">
+      <Setter Property="MinWidth" Value="132" />
+      <Setter Property="MaxWidth" Value="320" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="ItemsPanel">
+        <ItemsPanelTemplate>
+          <StackPanel Spacing="1" />
+        </ItemsPanelTemplate>
+      </Setter>
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{DynamicResource AlchemyPanelBrush}"
+                  BorderBrush="{DynamicResource AlchemyBorderBrush}"
+                  BorderThickness="1"
+                  CornerRadius="6"
+                  Padding="3">
+            <ItemsPresenter Name="PART_ItemsPresenter"
+                            ItemsPanel="{TemplateBinding ItemsPanel}" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="MenuItem.table-submenu-item">
+      <Setter Property="Height" Value="22" />
+      <Setter Property="MinHeight" Value="22" />
+      <Setter Property="Padding" Value="7,0" />
+      <Setter Property="FontSize" Value="11.5" />
+      <Setter Property="CornerRadius" Value="5" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Panel>
+            <Border Name="PART_LayoutRoot"
+                    Padding="{TemplateBinding Padding}"
+                    Background="{TemplateBinding Background}"
+                    CornerRadius="{TemplateBinding CornerRadius}">
+              <Grid ColumnDefinitions="*,12">
+                <ContentPresenter Name="PART_HeaderPresenter"
+                                  Content="{TemplateBinding Header}"
+                                  ContentTemplate="{TemplateBinding HeaderTemplate}"
+                                  HorizontalAlignment="Stretch"
+                                  VerticalAlignment="Center" />
+                <Path Name="PART_ChevronPath"
+                      Grid.Column="1"
+                      Width="6"
+                      Height="8"
+                      Stretch="Uniform"
+                      HorizontalAlignment="Right"
+                      VerticalAlignment="Center"
+                      Fill="{DynamicResource AlchemyGlyphBrush}"
+                      Data="M384-192 320-256 576-512 320-768 384-832 704-512 384-192Z" />
+              </Grid>
+            </Border>
+            <Popup Name="PART_Popup"
+                   Placement="RightEdgeAlignedTop"
+                   HorizontalOffset="5"
+                   IsLightDismissEnabled="False"
+                   IsOpen="{TemplateBinding IsSubMenuOpen, Mode=TwoWay}">
+              <Border Background="{DynamicResource AlchemyPanelBrush}"
+                      BorderBrush="{DynamicResource AlchemyBorderBrush}"
+                      BorderThickness="1"
+                      Padding="3"
+                      MinWidth="122"
+                      CornerRadius="6">
+                <ItemsPresenter Name="PART_ItemsPresenter"
+                                ItemsPanel="{TemplateBinding ItemsPanel}" />
+              </Border>
+            </Popup>
+          </Panel>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="MenuItem.table-submenu-item:selected /template/ Border#PART_LayoutRoot">
+      <Setter Property="Background" Value="{DynamicResource AlchemyRowHoverBrush}" />
+    </Style>
+    <Style Selector="MenuItem.edit-choice-item">
+      <Setter Property="Height" Value="21" />
+      <Setter Property="MinHeight" Value="21" />
+      <Setter Property="MinWidth" Value="116" />
+      <Setter Property="Padding" Value="7,0" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}"
+                  CornerRadius="4"
+                  Padding="{TemplateBinding Padding}">
+            <ContentPresenter Content="{TemplateBinding Header}"
+                              VerticalAlignment="Center" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="MenuItem.edit-choice-item:pointerover">
+      <Setter Property="Background" Value="{DynamicResource AlchemyRowHoverBrush}" />
+    </Style>
+    <Style Selector="MenuItem.edit-choice-item:selected">
+      <Setter Property="Background" Value="{DynamicResource AlchemyRowHoverBrush}" />
+    </Style>
+    <Style Selector="MenuItem.edit-choice-item:pressed">
+      <Setter Property="Background" Value="{DynamicResource AlchemySelectionBrush}" />
+    </Style>
+    <Style Selector="ToolTip.table-hover-tooltip">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{DynamicResource AlchemyPanelBrush}"
+                  BorderBrush="{DynamicResource AlchemyBorderBrush}"
+                  BorderThickness="1"
+                  CornerRadius="9"
+              Padding="8,7">
+            <ContentPresenter Content="{TemplateBinding Content}"
+                              HorizontalAlignment="Left"
+                              VerticalAlignment="Center" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="Border.edit-dropdown-shell">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="Border.edit-dropdown-shell:pointerover">
+      <Setter Property="BorderBrush" Value="{DynamicResource AlchemyBorderBrush}" />
+      <Setter Property="Background" Value="{DynamicResource AlchemyCardBrush}" />
+    </Style>
+    <Style Selector="Border.edit-dropdown-shell.open">
+      <Setter Property="BorderBrush" Value="#78BFF2" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Background" Value="{DynamicResource AlchemyCardBrush}" />
+    </Style>
+    <Style Selector="Border.edit-text-shell">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="Border.edit-text-shell:pointerover">
+      <Setter Property="BorderBrush" Value="{DynamicResource AlchemyBorderBrush}" />
+      <Setter Property="Background" Value="{DynamicResource AlchemyCardBrush}" />
+    </Style>
+    <Style Selector="Border.connection-summary-shell">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="Border.connection-summary-shell:pointerover">
+      <Setter Property="BorderBrush" Value="{DynamicResource AlchemyBorderBrush}" />
+      <Setter Property="Background" Value="{DynamicResource AlchemyCardBrush}" />
+    </Style>
+    <Style Selector="Border.connection-modal-dropdown-shell">
+      <Setter Property="Height" Value="24" />
+      <Setter Property="Background" Value="{DynamicResource AlchemyCardBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AlchemyBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="Border.connection-modal-dropdown-shell:pointerover">
+      <Setter Property="Background" Value="{DynamicResource AlchemyCardBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AlchemyBorderBrush}" />
+    </Style>
+    <Style Selector="Border.connection-modal-dropdown-shell.open">
+      <Setter Property="Background" Value="{DynamicResource AlchemyCardBrush}" />
+      <Setter Property="BorderBrush" Value="#78BFF2" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="Button.connection-modal-action">
+      <Setter Property="Width" Value="54" />
+      <Setter Property="Height" Value="24" />
+      <Setter Property="MinHeight" Value="24" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="Background" Value="{DynamicResource AlchemyPanelBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AlchemyBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="FocusAdorner" Value="{x:Null}" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="{TemplateBinding CornerRadius}">
+            <ContentPresenter Content="{TemplateBinding Content}"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Center"
+                              RenderTransform="translate(0px, 1px)" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="Button.connection-modal-action.primary">
+      <Setter Property="Background" Value="{DynamicResource AlchemyFocusBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AlchemyFocusBrush}" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="Button.connection-modal-action:pointerover">
+      <Setter Property="Background" Value="{DynamicResource AlchemyRowHoverBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AlchemyBorderBrush}" />
+    </Style>
+    <Style Selector="Button.connection-modal-action.primary:pointerover">
+      <Setter Property="Background" Value="{DynamicResource AlchemySelectionBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AlchemySelectionBrush}" />
+    </Style>
+    <Style Selector="TextBox.edit-cell-editor">
+      <Setter Property="Background" Value="{DynamicResource AlchemyCardBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AlchemyBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Padding" Value="5,1,5,0" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="FocusAdorner" Value="{x:Null}" />
+      <Setter Property="Cursor" Value="Ibeam" />
+      <Setter Property="CaretBrush" Value="{DynamicResource AlchemyGlyphBrush}" />
+      <Setter Property="SelectionBrush" Value="{DynamicResource AlchemySelectionBrush}" />
+      <Setter Property="SelectionForegroundBrush" Value="{DynamicResource AlchemySelectionForegroundBrush}" />
+      <Setter Property="ScrollViewer.BringIntoViewOnFocusChange" Value="False" />
+    </Style>
+    <Style Selector="TextBox.edit-cell-editor:focus">
+      <Setter Property="BorderBrush" Value="{DynamicResource AlchemyFocusBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="TextBox.edit-cell-editor /template/ Border#PART_BorderElement">
+      <Setter Property="Background" Value="{DynamicResource AlchemyCardBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AlchemyBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="4" />
+    </Style>
+    <Style Selector="TextBox.edit-cell-editor:focus /template/ Border#PART_BorderElement">
+      <Setter Property="BorderBrush" Value="{DynamicResource AlchemyFocusBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="TextBox.edit-cell-editor.invalid">
+      <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="TextBox.edit-cell-editor.invalid /template/ Border#PART_BorderElement">
+      <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="TextBox.table-cell-editor">
+      <Setter Property="Padding" Value="5,1,5,1" />
+    </Style>
+    <Style Selector="TextBox.connection-modal-editor">
+      <Setter Property="Padding" Value="5,1,5,1" />
+    </Style>
+    <Style Selector="TextBox.panel-rename-editor">
+      <Setter Property="Padding" Value="5,1,5,1" />
+    </Style>
+    <Style Selector="TextBox.panel-rename-editor.invalid">
+      <Setter Property="BorderBrush" Value="{DynamicResource AlchemyDangerBrush}" />
+    </Style>
+    <Style Selector="TextBox.panel-rename-editor.invalid /template/ Border#PART_BorderElement">
+      <Setter Property="BorderBrush" Value="{DynamicResource AlchemyDangerBrush}" />
+    </Style>
+    <Style Selector="Button.header-sort-button">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="IsTabStop" Value="False" />
+      <Setter Property="Focusable" Value="False" />
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="FocusAdorner" Value="{x:Null}" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <ContentPresenter Content="{TemplateBinding Content}"
+                            HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="PathIcon.header-sort-chevron">
+      <Setter Property="Width" Value="10" />
+      <Setter Property="Height" Value="10" />
+      <Setter Property="Foreground" Value="{DynamicResource AlchemyMutedBrush}" />
+      <Setter Property="IsVisible" Value="False" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.active-cell-shell">
+      <Setter Property="BorderBrush" Value="#78BFF2" />
+      <Setter Property="Background" Value="#1A78BFF2" />
+    </Style>
+    <Style Selector="Button.settings-action">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="8,3" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="FocusAdorner" Value="{x:Null}" />
+    </Style>
+    <Style Selector="Button.settings-action:pointerover">
+      <Setter Property="Background" Value="{DynamicResource AlchemyRowHoverBrush}" />
+    </Style>
+    <Style Selector="TextBlock.settings-row-text">
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="RenderTransform" Value="translate(0px, 1px)" />
+    </Style>
+
+  </Window.Styles>
+
+  <NativeMenu.Menu>
+    <NativeMenu>
+      <NativeMenuItem Header="File">
+        <NativeMenuItem.Menu>
+          <NativeMenu>
+            <NativeMenuItem Header="Open"
+                            Click="OpenFileRequested" />
+            <NativeMenuItemSeparator />
+            <NativeMenuItem Header="Save"
+                            Gesture="Meta+S"
+                            Click="SaveMenuRequested" />
+            <NativeMenuItem Header="Save As…"
+                            Gesture="Meta+Shift+S"
+                            Click="SaveAsMenuRequested" />
+          </NativeMenu>
+        </NativeMenuItem.Menu>
+      </NativeMenuItem>
+      <NativeMenuItem Header="Edit">
+        <NativeMenuItem.Menu>
+          <NativeMenu>
+            <NativeMenuItem Header="Undo"
+                            Gesture="Meta+Z"
+                            Click="UndoMenuRequested" />
+            <NativeMenuItem Header="Redo"
+                            Gesture="Meta+Shift+Z"
+                            Click="RedoMenuRequested" />
+            <NativeMenuItemSeparator />
+            <NativeMenuItem Header="Cut"
+                            Gesture="Meta+X"
+                            Click="CutMenuRequested" />
+            <NativeMenuItem Header="Copy"
+                            Gesture="Meta+C"
+                            Click="CopyMenuRequested" />
+            <NativeMenuItem Header="Paste"
+                            Gesture="Meta+V"
+                            Click="PasteMenuRequested" />
+          </NativeMenu>
+        </NativeMenuItem.Menu>
+      </NativeMenuItem>
+    </NativeMenu>
+  </NativeMenu.Menu>
+
+  <Grid RowDefinitions="46,*">
+    <local:AlchemyTitleShell x:Name="WindowTitleShell"
+                             Grid.Row="0"
+                             DragDrop.AllowDrop="True"
+                             TitleDragRequested="TitleShellPointerPressed"
+                             IssuesOnlyChanged="TitleShellIssuesOnlyChanged"
+                             TogglePanelRequested="TogglePanelRequested"
+                             BackFromSettingsRequested="ShowWorkspaceRequested"
+                             NavigateBackRequested="NavigateBackRequested"
+                             NavigateForwardRequested="NavigateForwardRequested" />
+
+        <Grid x:Name="WorkspacePage"
+          Grid.Row="1"
+          ColumnDefinitions="Auto,*">
+      <Border x:Name="SidePanelHost"
+          Grid.Column="0"
+          Width="224"
+          IsVisible="False"
+          DragDrop.AllowDrop="True"
+          Background="{DynamicResource AlchemyPanelBrush}"
+          BorderBrush="{DynamicResource AlchemyDividerBrush}"
+          BorderThickness="0,0,1,0"
+          Padding="0">
+        <Grid RowDefinitions="Auto,*">
+          <Border Background="{DynamicResource AlchemyPanelBrush}"
+                  BorderBrush="{DynamicResource AlchemyDividerBrush}"
+                  BorderThickness="0,0,0,1"
+                  MinHeight="30"
+                  Padding="12,0">
+            <TextBlock x:Name="PanelPathText"
+                       Foreground="{DynamicResource AlchemyTextPrimaryBrush}"
+                       FontSize="11"
+                       VerticalAlignment="Center"
+                       TextTrimming="CharacterEllipsis"
+                       RenderTransform="translate(0px, 1px)"
+                       Text="Storage" />
+          </Border>
+
+          <ScrollViewer x:Name="PanelStorageScroll"
+                        Grid.Row="1"
+                        HorizontalScrollBarVisibility="Disabled"
+                        VerticalScrollBarVisibility="Auto"
+                        PointerPressed="OpenPanelBackgroundContextMenu">
+            <StackPanel x:Name="PanelStorageRows"
+                        Margin="10,8,10,18"
+                        PointerPressed="OpenPanelBackgroundContextMenu"
+                        Spacing="2" />
+          </ScrollViewer>
+            <Rectangle x:Name="PanelLevelDropOutline"
+                 Grid.Row="1"
+                 IsVisible="False"
+                 Margin="10,8,10,18"
+                 RadiusX="8"
+                 RadiusY="8"
+                Stroke="{DynamicResource AlchemyDropOutlineBrush}"
+                 StrokeThickness="1"
+                 StrokeDashArray="4,3"
+                 Fill="Transparent"
+                 IsHitTestVisible="False"
+                 ZIndex="4" />
+          <Canvas x:Name="PanelDragLayer"
+                  Grid.Row="1"
+                  ZIndex="5"
+                  IsHitTestVisible="False" />
+        </Grid>
+      </Border>
+
+      <Grid x:Name="RowsWorkspace"
+        Grid.Column="1"
+            RowDefinitions="Auto,*,Auto">
+        <ScrollViewer x:Name="HeaderScrollViewer"
+              HorizontalScrollBarVisibility="Hidden"
+              VerticalScrollBarVisibility="Disabled">
+          <Border Background="{DynamicResource AlchemyPanelBrush}"
+              BorderBrush="{DynamicResource AlchemyDividerBrush}"
+              BorderThickness="0,0,0,1"
+              MinHeight="30"
+              Padding="12,0">
+            <Grid x:Name="HeaderGrid"
+              ColumnDefinitions="170,360,120,120,110,110,120">
+          <Button Classes="header-sort-button"
+          Tag="TagGroup"
+          Click="SortHeaderClicked">
+        <StackPanel Orientation="Horizontal"
+              Spacing="6"
+                    VerticalAlignment="Center">
+          <TextBlock x:Name="TagGroupHeaderText"
+                    Text="Tag Group"
+                    Margin="0,2,0,0"
+                    FontSize="12"
+                    FontWeight="SemiBold" />
+          <PathIcon x:Name="TagGroupSortChevron"
+                    Classes="header-sort-chevron"
+                    Margin="0,-1,0,0" />
+        </StackPanel>
+          </Button>
+          <Button Grid.Column="6"
+          Classes="header-sort-button"
+          Tag="UpdateData"
+          Click="SortHeaderClicked">
+        <StackPanel Orientation="Horizontal"
+              Spacing="6"
+                    VerticalAlignment="Center">
+          <TextBlock x:Name="UpdateDataHeaderText"
+                    Text="Update"
+                    Margin="12,2,0,0"
+                    FontSize="12"
+                    FontWeight="SemiBold" />
+          <PathIcon x:Name="UpdateDataSortChevron"
+                    Classes="header-sort-chevron"
+                    Margin="0,-1,0,0" />
+        </StackPanel>
+          </Button>
+          <Button Grid.Column="1"
+          Classes="header-sort-button"
+          Tag="TagName"
+          Click="SortHeaderClicked">
+        <StackPanel Orientation="Horizontal"
+              Spacing="6"
+                    VerticalAlignment="Center">
+          <TextBlock x:Name="TagNameHeaderText"
+                    Text="Tag Name"
+                    Margin="12,2,0,0"
+                    FontSize="12"
+                    FontWeight="SemiBold" />
+          <PathIcon x:Name="TagNameSortChevron"
+                    Classes="header-sort-chevron"
+                    Margin="0,-1,0,0" />
+        </StackPanel>
+          </Button>
+          <Button Grid.Column="2"
+          Classes="header-sort-button"
+          Tag="DataType"
+          Click="SortHeaderClicked">
+        <StackPanel Orientation="Horizontal"
+              Spacing="6"
+                    VerticalAlignment="Center">
+          <TextBlock x:Name="DataTypeHeaderText"
+                    Text="Data Type"
+                    Margin="12,2,0,0"
+                    FontSize="12"
+                    FontWeight="SemiBold" />
+          <PathIcon x:Name="DataTypeSortChevron"
+                    Classes="header-sort-chevron"
+                    Margin="0,-1,0,0" />
+        </StackPanel>
+          </Button>
+          <Button Grid.Column="3"
+          Classes="header-sort-button"
+          Tag="AddressStart"
+          Click="SortHeaderClicked">
+        <StackPanel Orientation="Horizontal"
+              Spacing="6"
+                    VerticalAlignment="Center">
+          <TextBlock x:Name="AddressStartHeaderText"
+                    Text="Address Start"
+                    Margin="12,2,0,0"
+                    FontSize="12"
+                    FontWeight="SemiBold" />
+          <PathIcon x:Name="AddressStartSortChevron"
+                    Classes="header-sort-chevron"
+                    Margin="0,-1,0,0" />
+        </StackPanel>
+          </Button>
+          <Button Grid.Column="4"
+          Classes="header-sort-button"
+          Tag="Scaling"
+          Click="SortHeaderClicked">
+        <StackPanel Orientation="Horizontal"
+              Spacing="6"
+                    VerticalAlignment="Center">
+          <TextBlock x:Name="ScalingHeaderText"
+                    Text="Scaling"
+                    Margin="12,2,0,0"
+                    FontSize="12"
+                    FontWeight="SemiBold" />
+          <PathIcon x:Name="ScalingSortChevron"
+                    Classes="header-sort-chevron"
+                    Margin="0,-1,0,0" />
+        </StackPanel>
+          </Button>
+          <Button Grid.Column="5"
+          Classes="header-sort-button"
+          Tag="ReadWrite"
+          Click="SortHeaderClicked">
+        <StackPanel Orientation="Horizontal"
+              Spacing="6"
+                    VerticalAlignment="Center">
+          <TextBlock x:Name="ReadWriteHeaderText"
+                    Text="Read/Write"
+                    Margin="12,2,0,0"
+                    FontSize="12"
+                    FontWeight="SemiBold" />
+          <PathIcon x:Name="ReadWriteSortChevron"
+                    Classes="header-sort-chevron"
+                    Margin="0,-1,0,0" />
+        </StackPanel>
+          </Button>
+          <GridSplitter Grid.Column="0"
+                        Width="5"
+                        HorizontalAlignment="Right"
+                        Background="Transparent"
+                        ResizeDirection="Columns"
+                        ResizeBehavior="CurrentAndNext"
+                        Cursor="SizeWestEast"
+                        DragDelta="ColumnSplitterDragDelta" />
+          <GridSplitter Grid.Column="1"
+                        Width="5"
+                        HorizontalAlignment="Right"
+                        Background="Transparent"
+                        ResizeDirection="Columns"
+                        ResizeBehavior="CurrentAndNext"
+                        Cursor="SizeWestEast"
+                        DragDelta="ColumnSplitterDragDelta" />
+          <GridSplitter Grid.Column="2"
+                        Width="5"
+                        HorizontalAlignment="Right"
+                        Background="Transparent"
+                        ResizeDirection="Columns"
+                        ResizeBehavior="CurrentAndNext"
+                        Cursor="SizeWestEast"
+                        DragDelta="ColumnSplitterDragDelta" />
+          <GridSplitter Grid.Column="3"
+                        Width="5"
+                        HorizontalAlignment="Right"
+                        Background="Transparent"
+                        ResizeDirection="Columns"
+                        ResizeBehavior="CurrentAndNext"
+                        Cursor="SizeWestEast"
+                        DragDelta="ColumnSplitterDragDelta" />
+          <GridSplitter Grid.Column="4"
+                        Width="5"
+                        HorizontalAlignment="Right"
+                        Background="Transparent"
+                        ResizeDirection="Columns"
+                        ResizeBehavior="CurrentAndNext"
+                        Cursor="SizeWestEast"
+                        DragDelta="ColumnSplitterDragDelta" />
+          <GridSplitter Grid.Column="5"
+                        Width="5"
+                        HorizontalAlignment="Right"
+                        Background="Transparent"
+                        ResizeDirection="Columns"
+                        ResizeBehavior="CurrentAndNext"
+                        Cursor="SizeWestEast"
+                        DragDelta="ColumnSplitterDragDelta" />
+          <Border Grid.Column="0" Width="1" HorizontalAlignment="Right"
+                  Background="{DynamicResource AlchemyDividerBrush}" Opacity="0.45"
+                  IsHitTestVisible="False" />
+          <Border Grid.Column="1" Width="1" HorizontalAlignment="Right"
+                  Background="{DynamicResource AlchemyDividerBrush}" Opacity="0.45"
+                  IsHitTestVisible="False" />
+          <Border Grid.Column="2" Width="1" HorizontalAlignment="Right"
+                  Background="{DynamicResource AlchemyDividerBrush}" Opacity="0.45"
+                  IsHitTestVisible="False" />
+          <Border Grid.Column="3" Width="1" HorizontalAlignment="Right"
+                  Background="{DynamicResource AlchemyDividerBrush}" Opacity="0.45"
+                  IsHitTestVisible="False" />
+          <Border Grid.Column="4" Width="1" HorizontalAlignment="Right"
+                  Background="{DynamicResource AlchemyDividerBrush}" Opacity="0.45"
+                  IsHitTestVisible="False" />
+          <Border Grid.Column="5" Width="1" HorizontalAlignment="Right"
+                  Background="{DynamicResource AlchemyDividerBrush}" Opacity="0.45"
+                  IsHitTestVisible="False" />
+            </Grid>
+          </Border>
+        </ScrollViewer>
+
+        <ScrollViewer x:Name="RowsScrollViewer"
+                      Grid.Row="1"
+                      HorizontalScrollBarVisibility="Auto"
+                      VerticalScrollBarVisibility="Auto">
+          <StackPanel x:Name="RowsPanel"
+                      Spacing="0" />
+        </ScrollViewer>
+
+        <Border x:Name="ConnectionDetailsShell"
+                Grid.Row="2"
+                IsVisible="True"
+                MinHeight="30"
+                Padding="12,0"
+          Background="{DynamicResource AlchemyConnectionShellBrush}"
+          BorderBrush="{DynamicResource AlchemyConnectionShellBorderBrush}"
+                BorderThickness="0,1,0,0">
+          <Grid ColumnDefinitions="*,Auto">
+            <StackPanel x:Name="ConnectionDetailsPanel"
+                        Orientation="Horizontal"
+                        Spacing="6"
+                        VerticalAlignment="Center" />
+            <TextBlock x:Name="TagCountTextBlock"
+                       Grid.Column="1"
+                       Margin="16,0,0,0"
+                       VerticalAlignment="Center"
+                       Foreground="{DynamicResource AlchemyConnectionSummaryTextBrush}"
+                       FontSize="12"
+                       RenderTransform="translate(0px, 1px)" />
+          </Grid>
+        </Border>
+
+        <Grid x:Name="ConnectionEditorOverlay"
+              Grid.RowSpan="3"
+              ZIndex="20"
+              IsVisible="False"
+              Background="#99000000"
+              PointerPressed="ConnectionEditorOverlayPointerPressed">
+          <Border x:Name="ConnectionEditorCard"
+                  Width="224"
+                  Padding="14"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center"
+                  Focusable="True"
+                  FocusAdorner="{x:Null}"
+                  Background="{DynamicResource AlchemyPanelBrush}"
+                  BorderBrush="{DynamicResource AlchemyBorderBrush}"
+                  BorderThickness="1"
+                  CornerRadius="8">
+            <StackPanel x:Name="ConnectionEditorPanel"
+                        Spacing="0" />
+          </Border>
+        </Grid>
+      </Grid>
+
+    </Grid>
+
+    <Grid x:Name="SettingsPage"
+          Grid.Row="1"
+          RowDefinitions="*,Auto"
+          IsVisible="False">
+      <ScrollViewer Grid.Row="0">
+        <StackPanel Margin="32,24" Spacing="20">
+          <StackPanel Spacing="10">
+            <TextBlock Text="APPEARANCE"
+                       Foreground="{DynamicResource AlchemyMutedBrush}"
+                       FontSize="10"
+                       FontWeight="SemiBold"
+                       LetterSpacing="1.2" />
+            <Border Height="40"
+                    Padding="14,0"
+                    CornerRadius="12"
+                    Background="{DynamicResource AlchemyCardBrush}"
+                    BorderBrush="{DynamicResource AlchemyCardBorderBrush}"
+                    BorderThickness="1">
+              <Grid ColumnDefinitions="*,Auto,Auto" VerticalAlignment="Center">
+                <TextBlock Classes="settings-row-text"
+                           Text="Interface"
+                           Foreground="{DynamicResource AlchemyMutedBrush}"
+                           FontSize="12" />
+                <TextBlock x:Name="InterfaceModeText"
+                           Classes="settings-row-text"
+                           Grid.Column="1"
+                           Margin="0,0,8,0"
+                           Text="System"
+                           Foreground="{DynamicResource AlchemyMutedBrush}"
+                           FontSize="12" />
+                <kit:IconButton Grid.Column="2"
+                                   ToolTip.Tip="Cycle interface theme"
+                                   Invoked="CycleTheme">
+                  <kit:IconButton.Icon>
+                    <Grid Width="17" Height="17">
+                      <PathIcon x:Name="SystemThemeIcon"
+                                Width="14" Height="14"
+                                Foreground="{DynamicResource AlchemyGlyphBrush}"
+                                Data="M320-120v-80h80v-80H160q-33 0-56.5-23.5T80-360v-400q0-33 23.5-56.5T160-840h640q33 0 56.5 23.5T880-760v400q0 33-23.5 56.5T800-280H560v80h80v80H320ZM160-360h640v-400H160v400Zm0 0v-400 400Z" />
+                      <PathIcon x:Name="DarkThemeIcon"
+                                Width="14" Height="14"
+                                IsVisible="False"
+                                Foreground="{DynamicResource AlchemyGlyphBrush}"
+                                Data="M480-120q-150 0-255-105T120-480q0-150 105-255t255-105q14 0 27.5 1t26.5 3q-41 29-65.5 75.5T444-660q0 90 63 153t153 63q55 0 101-24.5t75-65.5q2 13 3 26.5t1 27.5q0 150-105 255T480-120Z" />
+                      <PathIcon x:Name="LightThemeIcon"
+                                Width="14" Height="14"
+                                IsVisible="False"
+                                Foreground="{DynamicResource AlchemyGlyphBrush}"
+                                Data="M565-395q35-35 35-85t-35-85q-35-35-85-35t-85 35q-35 35-35 85t35 85q35 35 85 35t85-35Zm-226.5 56.5Q280-397 280-480t58.5-141.5Q397-680 480-680t141.5 58.5Q680-563 680-480t-58.5 141.5Q563-280 480-280t-141.5-58.5Z" />
+                    </Grid>
+                  </kit:IconButton.Icon>
+                </kit:IconButton>
+              </Grid>
+            </Border>
+          </StackPanel>
+
+          <StackPanel Spacing="10">
+            <TextBlock Text="ALCHEMY ROOT"
+                       Foreground="{DynamicResource AlchemyMutedBrush}"
+                       FontSize="10"
+                       FontWeight="SemiBold"
+                       LetterSpacing="1.2" />
+            <Border Height="40"
+                    Padding="14,0"
+                    CornerRadius="12"
+                    Background="{DynamicResource AlchemyCardBrush}"
+                    BorderBrush="{DynamicResource AlchemyCardBorderBrush}"
+                    BorderThickness="1">
+              <Grid ColumnDefinitions="28,*,Auto" VerticalAlignment="Center">
+                <PathIcon Width="15" Height="15"
+                          Foreground="{DynamicResource AlchemyGlyphBrush}"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Center"
+                          RenderTransform="translate(0px, -1px)"
+                          Data="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h240l80 80h320q33 0 56.5 23.5T880-640v400q0 33-23.5 56.5T800-160H160Z" />
+                <TextBlock x:Name="AlchemyRootPathText"
+                           Classes="settings-row-text"
+                           Grid.Column="1"
+                           Text="Not set"
+                           Foreground="{DynamicResource AlchemyMutedBrush}"
+                           FontSize="12"
+                           TextTrimming="CharacterEllipsis" />
+                <Button Grid.Column="2"
+                        Classes="settings-action"
+                        Click="ChooseAlchemyRoot">
+                  <TextBlock Classes="settings-row-text"
+                             Text="Choose"
+                             Foreground="{DynamicResource AlchemyMutedBrush}"
+                             FontSize="12" />
+                </Button>
+              </Grid>
+            </Border>
+          </StackPanel>
+
+        </StackPanel>
+      </ScrollViewer>
+
+      <StackPanel Grid.Row="1" Margin="32,0,32,24" Spacing="10">
+        <TextBlock Text="ABOUT"
+                   Foreground="{DynamicResource AlchemyMutedBrush}"
+                   FontSize="10"
+                   FontWeight="SemiBold"
+                   LetterSpacing="1.2" />
+        <Border Height="40"
+                Padding="16,0"
+                CornerRadius="12"
+                Background="{DynamicResource AlchemyCardBrush}"
+                BorderBrush="{DynamicResource AlchemyCardBorderBrush}"
+                BorderThickness="1">
+          <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+            <TextBlock Classes="settings-row-text"
+                       Text="Alchemy"
+                       Foreground="{DynamicResource AlchemyMutedBrush}"
+                       FontSize="12" />
+            <TextBlock Grid.Column="1"
+                       Classes="settings-row-text"
+                       Text="0.1.0"
+                       Foreground="{DynamicResource AlchemyMutedBrush}"
+                       FontSize="12" />
+          </Grid>
+        </Border>
+      </StackPanel>
+    </Grid>
+  </Grid>
+</Window>
