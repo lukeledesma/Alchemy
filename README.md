@@ -8,10 +8,10 @@ rules, deterministic preload regeneration, and clear validation feedback.
 
 ## Highlights
 
-- Always-editable tag table with no mode switching.
-- Native-feeling keyboard workflows for row and cell operations.
-- Deterministic XML save pipeline with canonical preload generation.
-- Storage panel with file navigation, rename, drag/drop, and Finder integration.
+- Direct row and cell editing for fast table updates.
+- Practical keyboard shortcuts for row and cell operations.
+- Deterministic XML save pipeline with preload repair and regeneration.
+- Storage panel with root-folder selection, file navigation, rename, drag/drop, and Finder integration.
 - Inline diagnostics for actionable issues such as missing fields and address overlap.
 
 ## Platform and Requirements
@@ -62,4 +62,3 @@ Open a specific file on launch:
 
 - Preserve save contract behavior unless intentionally changing XML semantics.
 - Keep preload generation deterministic and test with mixed datalength rows.
-- Maintain keyboard parity for Command and Control modifiers.
